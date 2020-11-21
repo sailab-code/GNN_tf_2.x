@@ -220,7 +220,7 @@ class GNN:
         metr={k:float(self.extra_metrics[k](y_true,y_pred,**self.mt_args.get(k, dict()))) for k in self.extra_metrics}
         metr['It'] = int(tf.reduce_mean(iters))
         metr['Loss'] = float(tf.reduce_mean(loss))
-        return metr, float(tf.reduce_sum(loss)), y_true, y_pred, targets, y_score
+        return metr, metr['Loss'], y_true, y_pred, targets, y_score
 
     ## TRAINING PROCEDURE #############################################################################################
     def train(self, gTr, epochs: int = 10, gVa=None, validation_freq: int = 10, max_fails: int = 10, class_weights=1,

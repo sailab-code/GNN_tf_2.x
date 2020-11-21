@@ -1,4 +1,3 @@
-import os
 import tensorflow as tf
 import GNN as GNN
 import GNN_utils as utils
@@ -47,12 +46,16 @@ hidden_units_net_state: list = [150, 150]
 activations_net_state: str = 'selu'
 kernel_init_net_state: str = 'lecun_uniform'
 bias_init_net_state: str = 'lecun_uniform'
+dropout_rate_st: float = 0.1
+dropout_pos_st: list= [0]
 
 ### NET OUTPUT PARAMETERS
 hidden_units_net_output: list = [150]
 activations_net_output: str = 'linear'
 kernel_init_net_output: str = 'glorot_uniform'
 bias_init_net_output: str = 'glorot_uniform'
+dropout_rate_out: float = 0.1
+dropout_pos_out: list= [0]
 
 ### GNN PARAMETERS
 learning_rate = 0.001
@@ -68,14 +71,10 @@ state_threshold = 0.1
 path_writer = 'writer'
 dim_state = 0
 
-### GPU PARAMETERS - manage gpu usage
-use_gpu, target_gpu = True, '1'
-if use_gpu: os.environ["CUDA_VISIBLE_DEVICES"] = target_gpu
-tf.config.experimental.allow_growth = True
-
 ### LEARNING / TEST OPTIONS
 training: bool = True
 testing: bool = True
+
 
 
 #######################################################################################################################
@@ -125,7 +124,9 @@ netSt = utils.MLP(input_dim=input_net_st,
                   layers=layers_net_st,
                   activations=activations_net_state,
                   kernel_initializer=kernel_init_net_state,
-                  bias_initializer=bias_init_net_state)
+                  bias_initializer=bias_init_net_state,
+                  dropout_percs=dropout_rate_st,
+                  dropout_pos=dropout_pos_st)
 
 ### NETS - OUTPUT
 input_net_out, layers_net_out = utils.get_inout_dims(gGen, problem_type, 'output', dim_state, hidden_units_net_output)
@@ -133,7 +134,9 @@ netOut = utils.MLP(input_dim=input_net_out,
                    layers=layers_net_out,
                    activations=activations_net_output,
                    kernel_initializer=kernel_init_net_output,
-                   bias_initializer=bias_init_net_output)
+                   bias_initializer=bias_init_net_output,
+                   dropout_percs=dropout_rate_out,
+                   dropout_pos=dropout_pos_out)
 
 ### GNN
 gnntype = {'n1': GNN.GNN, 'n2': GNN.GNN2, 'a1': GNN.GNNedgeBased, 'g1': GNN.GNNgraphBased}
