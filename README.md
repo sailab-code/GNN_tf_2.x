@@ -5,7 +5,7 @@ This repo contains a Tensorflow 2.x implementation of the Graph Neural Network M
 
 ## Install
 ### Requirements
-The GNN framework requires the packages **tensorflow**, **numpy**, **pandas**, **sklearn**.
+The GNN framework requires the packages **tensorflow**, **numpy**, **pandas**, **sklearn**, **matplotlib**.
 
 To install the requirements you can use the following command
 
