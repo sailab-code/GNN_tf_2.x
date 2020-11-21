@@ -20,7 +20,21 @@ Examples on real-world datasets are coming... *Stay Tuned!*
 
 
 ## Citing
-Part of the code was inspired by M. Tiezzi and A. Rossi [gnn](https://github.com/sailab-code/gnn) implementation.
+To cite the GNN implementation please use the following publication:
+
+    Pancino, N., Rossi, A., Ciano, G., Giacomini, G., Bonechi, S., Andreini, P., Scarselli, F., Bianchini, M., Bongini, P. (2020). 
+    "Graph Neural Networks for the Prediction of Protein–Protein Interfaces",
+    In ESANN 2020 proceedings (pp.127-132).
+    
+Bibtex:
+
+    @proceedings{Pancino2020PPI,
+      title={Graph Neural Networks for the Prediction of Protein–Protein Interfaces},
+      author={Niccolò Pancino, Alberto Rossi, Giorgio Ciano, Giorgia Giacomini, Simone Bonechi, Paolo Andreini, Franco Scarselli, Monica Bianchini, Pietro Bongini},
+      booktitle={28th European Symposium on Artificial Neural Networks, Computational Intelligence and Machine Learning (online event) },
+      pages={127-132}
+      year={2020}
+    }
 
 To cite GNN please use the following publication:
 
@@ -32,12 +46,15 @@ Bibtex:
 
     @article{Scarselli2009TheGN,
       title={The Graph Neural Network Model},
-      author={Franco Scarselli and Marco Gori and Ah Chung Tsoi and Markus Hagenbuchner and Gabriele Monfardini},
+      author={Franco Scarselli, Marco Gori, Ah Chung Tsoi, Markus Hagenbuchner, Gabriele Monfardini},
       journal={IEEE Transactions on Neural Networks},
       year={2009},
       volume={20},
       pages={61-80}
     }
+
+## Contributions
+Part of the code was inspired by M. Tiezzi and A. Rossi [gnn](https://github.com/sailab-code/gnn) implementation.
 
 ## License
 Released under the 3-Clause BSD license (see `LICENSE.txt`):
