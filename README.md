@@ -22,7 +22,7 @@ Examples on real-world datasets are coming... *Stay Tuned!*
 ## Citing
 To cite the GNN implementation please use the following publication:
 
-    Pancino, N., Rossi, A., Ciano, G., Giacomini, G., Bonechi, S., Andreini, P., Scarselli, F., Bianchini, M., Bongini, P. (2020). 
+    Pancino, N., Rossi, A., Ciano, G., Giacomini, G., Bonechi, S., Andreini, P., Scarselli, F., Bianchini, M., Bongini, P. (2020),
     "Graph Neural Networks for the Prediction of Protein–Protein Interfaces",
     In ESANN 2020 proceedings (pp.127-132).
     
@@ -31,8 +31,8 @@ Bibtex:
     @proceedings{Pancino2020PPI,
       title={Graph Neural Networks for the Prediction of Protein–Protein Interfaces},
       author={Niccolò Pancino, Alberto Rossi, Giorgio Ciano, Giorgia Giacomini, Simone Bonechi, Paolo Andreini, Franco Scarselli, Monica Bianchini, Pietro Bongini},
-      booktitle={28th European Symposium on Artificial Neural Networks, Computational Intelligence and Machine Learning (online event) },
-      pages={127-132}
+      booktitle={28th European Symposium on Artificial Neural Networks, Computational Intelligence and Machine Learning (online event)},
+      pages={127-132},
       year={2020}
     }
 
