@@ -36,6 +36,8 @@ Bibtex:
       year={2020}
     }
 
+---------
+
 To cite GNN please use the following publication:
 
     F. Scarselli, M. Gori,  A. C. Tsoi, M. Hagenbuchner, G. Monfardini, 
