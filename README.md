@@ -26,6 +26,5 @@ Released under the 3-Clause BSD license (see `LICENSE.txt`)::
 
    Copyright (C) 2004-2020 Niccolò Pancino
    Niccolò Pancino <niccolo.pancino@unifi.it>
-   Pietro Bongini <>
+   Pietro Bongini <pietro.bongini@gmail.com >
    Matteo Tiezzi <mtiezzi@diism.unisi.it>
-   Alberto Rossi <alrossi@unifi.it>
