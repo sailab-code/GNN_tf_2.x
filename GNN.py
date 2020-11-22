@@ -278,7 +278,7 @@ class GNN:
             # TRAINING STEP
             for i, elem in enumerate(gTr):
                 training_step(elem, mean=mean)
-                if verbose > 1: print(' > Epoch {0}/{1} - Batch {2}/{3}'.format(e, epochs, i + 1, len(gTr)), end='\r')
+                if verbose > 1: print(' > Epoch {:4d}/{} \t\t> Batch {:4d}/{}'.format(e,epochs, i+1,len(gTr)),end='\r')
             # TRAINING EVALUATION STEP
             if e % validation_freq == 0:
                 metricsTr, *_ = self.evaluate(gTr, class_weights)
