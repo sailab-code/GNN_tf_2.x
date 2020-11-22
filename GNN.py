@@ -114,8 +114,8 @@ class GNN:
         print(p, end='\n\n')
 
     ## LOOP METHODS ###################################################################################################
-    ## EDGE-BASED: @tf.function raises error in tape.gradients(loss,...) because of the tf.gather in apply_filters()
-    ## In TF2.2+ this will be hopefully fixed. LOOK https://github.com/tensorflow/tensorflow/issues/36236
+    ## EDGE-BASED: @tf.function may raise error in tape.gradients(loss,...) because of the tf.gather in apply_filters()
+    ## In TF2.3+ this will be hopefully fixed. LOOK https://github.com/tensorflow/tensorflow/issues/36236
     #@tf.function
     def convergence(self, k, state, state_old, nodes, nodes_index, arcs_label, arcnode, training):
         # compute the incoming message for each node: shape == (len(source_nodes_index, Num state components)
@@ -224,7 +224,7 @@ class GNN:
         metr['Loss'] = float(tf.reduce_mean(loss))
         return metr, metr['Loss'], y_true, y_pred, targets, y_score
 
-    ## TRAINING PROCEDURE #############################################################################################
+    ## TRAINING METHOD ################################################################################################
     def train(self, gTr, epochs: int = 10, gVa=None, validation_freq: int = 10, max_fails: int = 10, class_weights=1,
               *, mean: bool = False, verbose: int = 3):
         """ TRAIN PROCEDURE
@@ -262,7 +262,7 @@ class GNN:
         if verbose not in range(4): raise ValueError('param <verbose> not in [0,1,2,3]')
         # Checking type for gTr and gVa + Initialization of Validation parameters
         gTr, gVa = checktype(gTr), checktype(gVa)
-        # Writers: Training, Validation (scalars) + Net_state, Net_output (histogram for weights/biases and grads)
+        # Writers: Training, Validation (scalars) + Net_state, Net_output (histogram for weights/biases)
         netS_writer = tf.summary.create_file_writer(self.path_writer + 'Net - State')
         netO_writer = tf.summary.create_file_writer(self.path_writer + 'Net - Output')
         trainining_writer = tf.summary.create_file_writer(self.path_writer + 'Training')
@@ -285,7 +285,7 @@ class GNN:
                 # History Update
                 self.history['Epoch'].append(e)
                 self.update_history('Tr', metricsTr)
-                # TensorBoard Update Tr: Losses, Interation@Convergence, Accuracies + histograms of weights and grads
+                # TensorBoard Update Tr: Losses, Interation@Convergence, Accuracies + histograms of weights
                 self.write_vals(trainining_writer, metricsTr, e)
                 self.write_net_weights(netS_writer, self.net_state.get_weights(), e, net_name='N1')
                 self.write_net_weights(netO_writer, self.net_output.get_weights(), e, net_name='N2')
@@ -299,7 +299,7 @@ class GNN:
                 self.history['Best Loss Va'].append(vbest_loss)
                 self.history['Fail'].append(vfails)
                 self.update_history('Va', metricsVa)
-                # TensorBoard Update Va: Losses, Interation@Convergence, Accuracies + histograms of weights and grads
+                # TensorBoard Update Va: Losses, Interation@Convergence, Accuracies + histograms of weights
                 self.write_vals(validation_writer, metricsVa, e)
                 # Early Stoping - reached max_fails for validation set
                 if vfails >= max_fails:
@@ -314,7 +314,7 @@ class GNN:
         self.write_net_weights(netS_writer, self.net_state.get_weights(), e, net_name='N1')
         self.write_net_weights(netO_writer, self.net_output.get_weights(), e, net_name='N2')
 
-    ## TEST PROCEDURE #################################################################################################
+    ## TEST METHOD ####################################################################################################
     def test(self, gTe, *, acc_classes=True, rocdir='', micro_and_macro=False, prisofsdir=''):
         """ TEST PROCEDURE
         :param gTe: element/list of GraphObjects for testing procedure
@@ -404,7 +404,7 @@ class GNN:
             for m in M: metrics[m].append(M[m])
         return metrics
 
-    ## STATIC METHODS #################################################################################################
+    ## STATIC METHODs #################################################################################################
     @staticmethod
     def ArcNode2SparseTensor(ArcNode):
         # ArcNode Tensor, then reordered to be correctly computable. NOTE: reorder() recommended by TF2.0+
@@ -463,7 +463,7 @@ class GNNgraphBased(GNN):
 class GNNedgeBased(GNN):
     #@tf.function
     def apply_filters(self, state_converged, nodes, nodes_index, arcs_label, mask):
-        """takes only arcs info of those with output_mask==1 AND belonging to set (in case Dataset == 1 Graph)"""
+        """ takes only arcs info of those with output_mask==1 AND belonging to set (in case Dataset == 1 Graph) """
         if self.state_vect_dim: state_converged = tf.concat((nodes, state_converged), axis=1)
         # gather source nodes state
         source_state = tf.gather(state_converged, nodes_index[:, 0])
