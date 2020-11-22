@@ -13,10 +13,16 @@ To install the requirements you can use the following command
 
 
 ## Simple usage example
-You can simply run starter.py to train a GNN on a dataset composed of graphs with random nodes/edges/targets. 
+Simply run starter.py to train a GNN on a dataset composed of graphs with random nodes/edges/targets. 
 
-Open starter.py to modify parameters in Section *script options*. 
-Examples on real-world datasets are coming... *Stay Tuned!*
+In starter.py set parameters in Section *script options* to change dataset and/or GNN behavihor, then run the script. 
+
+Set 
+
+    use_MUTAG=True 
+   
+to train a GNN on the real-world dataset MUTAG, (graph-based problem)
+
 
 
 ## Citing
