@@ -13,12 +13,11 @@ To install the requirements you can use the following command
 
 
 ## Simple usage example
-To train a GNN on a random/real-world dataset, simply run starter.py
+To train a GNN, simply run [starter.py](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/starter.py):
 
     import starter
 
-In [starter.py](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/starter.py)
-set parameters in section *SCRIPT OPTIONS* to change script behaviour, then run it. 
+In this script, set parameters in section *SCRIPT OPTIONS* to change script behaviour, then run it. 
 
 In particular, by default
     
