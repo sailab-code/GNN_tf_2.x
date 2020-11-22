@@ -227,7 +227,7 @@ def MLP(input_dim, layers, activations, kernel_initializer, bias_initializer,
     vals = [[layers[i], activations[i], kernel_initializer[i], bias_initializer[i]] for i in range(len(layers))]
     params = [dict(zip(keys, i)) for i in vals]
     # Dropout layers
-    if dropout_percs or dropout_pos:
+    if dropout_percs and dropout_pos:
         dropout_pos = list(np.array(dropout_pos) + np.arange(len(dropout_pos)))
         for i, elem in enumerate(dropout_percs): params.insert(dropout_pos[i], {'rate': elem})
     # set input shape for first layer
@@ -250,8 +250,7 @@ def get_inout_dims(g, problem, net_name, dim_state, hidden_units) -> tuple:
     assert net_name in ['state', 'output']
     if len(problem) == 2: problem += '1'
     if net_name == 'output':
-        input_shape = (problem[1] == 'a') * (
-                    g.DIM_NODE_LABEL + g.DIM_ARC_LABEL + dim_state) + g.DIM_NODE_LABEL + dim_state
+        input_shape = (problem[1]=='a')*(g.DIM_NODE_LABEL +g.DIM_ARC_LABEL+dim_state) + g.DIM_NODE_LABEL + dim_state
         output_shape = g.DIM_TARGET
     else:
         input_shape = g.DIM_ARC_LABEL + 2 * g.DIM_NODE_LABEL + dim_state * (1 + (problem[2] == '1'))

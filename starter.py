@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 import GNN as GNN
 import GNN_utils as utils
 from graph_class import GraphObject
@@ -16,16 +17,20 @@ Metrics = {'Acc': mt.accuracy_score, 'Bacc': mt.balanced_accuracy_score, 'Js': m
 #######################################################################################################################
 # SCRIPT OPTIONS - modify the parameters to adapt the execution to the problem under consideration ####################
 #######################################################################################################################
-# Possible problem_type (str) s.t. len(problem_tye) in[2,3]: 'outputModel + problemAddressed + typeGNNTobeUsed'.
-# > ['c' classification, 'r' regression] + ['g' graph-based; 'n' node-based; 'a' arc-based;] +[('','1') GNN1, '2' GNN2]
-# > Example: 'cn' or 'cn1': node-based classification with GNN; 'ra2' arc-based regression with GNN2 (Rossi-Tiezzi)
-problem_type: str = 'cn'
+### USE MUTAG DATASET - Graph-Based Problem (problem_type=='cg1', see below for details)
+use_MUTAG: bool = False
+
 
 ### GENERIC GRAPH PARAMETERS. See utils.randomGraph for details
 # Node and edge labels are initialized randomly. Target clusters are given by sklearn. 
 # Possible node_aggregation for matrix ArcNoe belonging to graphs in ['average', 'normalized', 'sum']
+# Possible problem_type (str) s.t. len(problem_tye) in[2,3]: 'outputModel + problemAddressed + typeGNNTobeUsed'.
+# > ['c' classification, 'r' regression] + ['g' graph-based; 'n' node-based; 'a' arc-based;] +[('','1') GNN1, '2' GNN2]
+# > Example: 'cn' or 'cn1': node-based classification with GNN; 'ra2' arc-based regression with GNN2 (Rossi-Tiezzi)
+problem_type: str = 'cg'
 graphs_number: int = 100
-nodes_number: int = 30
+max_nodes_number: int = 40  # each graph has at most 30 nodes
+min_nodes_number: int = 15  # each graph has at least 30 nodes
 dim_node_label: int = 3
 dim_arc_label: int = 1
 dim_target: int = 2
@@ -36,7 +41,7 @@ node_aggregation: str = 'sum'
 perc_Train: float = 0.8
 perc_Valid: float = 0.1
 batch_size: int = 32
-normalize: bool = False
+normalize: bool = True
 seed = None
 norm_nodes_range = None  # (-1,1) # other possible value
 norm_arcs_range = None  # (0,1) # other possible value
@@ -62,39 +67,46 @@ learning_rate = 0.001
 optgnn = tf.optimizers.Adam(learning_rate=learning_rate)
 lossF = tf.nn.softmax_cross_entropy_with_logits
 lossArguments = None
-extra_metrics = {i: Metrics[i] for i in ['Acc', 'Bacc', 'Ck', 'Fs', 'Js', 'Prec', 'Rec']}
-metrics_args = {i: {'avg': 'micro', 'pos_label': None} for i in ['Fs', 'Prec', 'Rec', 'Js']}
+extra_metrics = {i: Metrics[i] for i in ['Acc', 'Bacc', 'Ck', 'Fs', 'Js', 'Prec', 'Rec', 'Tpr','Tnr','Fpr','Fnr']}
+metrics_args = {i: {'avg': 'weighted', 'pos_label': None} for i in ['Fs', 'Prec', 'Rec', 'Js']}
 output_f = tf.keras.activations.softmax
-epochs = 1000
+epochs = 100
 max_iter = 5
-state_threshold = 0.1
+state_threshold = 0.01
 path_writer = 'writer'
-dim_state = 0
+dim_state = 10
 
 ### LEARNING / TEST OPTIONS
 training: bool = True
 testing: bool = True
-
+rocdir = 'roc'
 
 
 #######################################################################################################################
 # SCRIPT ##############################################################################################################
 #######################################################################################################################
 
-### PRINT SETUP
-if len(problem_type) == 2: problem_type += '1'
-print('Problem Addressed:\t{} \nProblem Based:\t\t{} \nGNN:\t\t\t\t{}\n'.format(*problem_type.upper()))
+if use_MUTAG:
+    print('> Loading MUTAG')
+    ### CREATE DATASET FROM MUTAG
+    from load_MUTAG import graphs
+    problem_type = 'cg1'
+else:
+    print('> Creating Dataset')
+    if len(problem_type) == 2: problem_type += '1'
+    ### CREATE RANDOM DATASET
+    graphs = [utils.randomGraph(nodes_number=int(np.random.choice(range(min_nodes_number,max_nodes_number))),
+                                dim_node_label=dim_node_label,
+                                dim_arc_label=dim_arc_label,
+                                dim_target=dim_target,
+                                density=density,
+                                normalize_features=False,
+                                aggregation=node_aggregation,
+                                problem_based=problem_type[1])
+              for i in range(graphs_number)]
 
-### CREATE RANDOM DATASET
-graphs = [utils.randomGraph(nodes_number=nodes_number,
-                            dim_node_label=dim_node_label,
-                            dim_arc_label=dim_arc_label,
-                            dim_target=dim_target,
-                            density=density,
-                            normalize_features=False,
-                            aggregation=node_aggregation,
-                            problem_based=problem_type[1])
-          for i in range(graphs_number)]
+### PRINT SETUP
+print('Problem Addressed:\t{} \nProblem Based:\t\t{} \nGNN:\t\t\t\t{}\n'.format(*problem_type.upper()))
 
 ### SPLITTING DATASET in Train, Validation and Test set
 problem_based = problem_type[1]
@@ -104,12 +116,12 @@ gTr = [graphs[i] for i in iTr]
 gVa = [graphs[i] for i in iVa]
 gTe = [graphs[i] for i in iTe]
 
-### BATCHES - gTr is list of GraphObject; gVa and gTe are GraphObjects + use gVa ONLY for taking useful dimensions
+### BATCHES - gTr is list of GraphObject; gVa and gTe are GraphObjects + use gTr[0] for taking useful dimensions
 print('Creating Batches and Merging Graphs')
 gTr = utils.getbatches(gTr, batch_size=batch_size, node_aggregation=node_aggregation)
 gVa = GraphObject.merge(gVa, node_aggregation=node_aggregation)
 gTe = GraphObject.merge(gTe, node_aggregation=node_aggregation)
-gGen = gVa.copy()
+gGen = gTr[0].copy()
 
 ### GRAPHS NORMALIZATION, based on training graphs
 if normalize:
@@ -156,7 +168,7 @@ gnn = gnntype[problem_type[1:]](net_state=netSt,
 
 if training: gnn.train(gTr,epochs=epochs, gVa=gVa)
 if testing:
-    metrics = gnn.test(gTe, acc_classes=True)
+    metrics = gnn.test(gTe, acc_classes=True, rocdir=rocdir)
     print('\nTest Res')
     for i in metrics: print(i, metrics[i])
 

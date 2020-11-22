@@ -116,7 +116,7 @@ class GNN:
     ## LOOP METHODS ###################################################################################################
     ## EDGE-BASED: @tf.function raises error in tape.gradients(loss,...) because of the tf.gather in apply_filters()
     ## In TF2.2+ this will be hopefully fixed. LOOK https://github.com/tensorflow/tensorflow/issues/36236
-    # @tf.function
+    #@tf.function
     def convergence(self, k, state, state_old, nodes, nodes_index, arcs_label, arcnode, training):
         # compute the incoming message for each node: shape == (len(source_nodes_index, Num state components)
         source_state = tf.gather(state, nodes_index[:, 0])
@@ -134,7 +134,7 @@ class GNN:
         return k + 1, state_new, state, nodes, nodes_index, arcs_label, arcnode, training
 
     # -----------------------------------------------------------------------------------------------------------------
-    # @tf.function
+    #@tf.function
     def condition(self, k, state, state_old, *args) -> tf.bool:
         """ Boolean function condition for tf.while_loop correct processing graphs """
         # distance_vector is the Euclidean Distance: √ Σ(xi-yi)² between current state xi and past state yi
@@ -151,6 +151,7 @@ class GNN:
         return tf.logical_and(c1, c2)
 
     # -----------------------------------------------------------------------------------------------------------------
+    #@tf.function
     def apply_filters(self, state_converged, nodes, nodes_index, arcs_label, mask):
         """ takes only nodes states for those with output_mask==1 AND belonging to set (in case Dataset == 1 Graph) """
         if self.state_vect_dim: state_converged = tf.concat((nodes, state_converged), axis=1)
@@ -164,11 +165,12 @@ class GNN:
         nodes_index = tf.constant(g.getArcs()[:, :2], dtype=tf.int32)
         arcs_label = tf.constant(g.getArcs()[:, 2:], dtype=tf.float32)
         arcnode = self.ArcNode2SparseTensor(g.getArcNode())
-        mask = g.getSetMask() == g.getOutputMask()
+        mask = tf.constant(g.getSetMask() == g.getOutputMask())
         # initialize all the useful variables for convergence loop
         k = tf.constant(0, dtype=tf.float32)
         state = tf.constant(g.initState(self.state_vect_dim), dtype=tf.float32)
         state_old = tf.ones_like(state, dtype=tf.float32)
+        training = tf.constant(training)
         # loop until convergence is reached
         k, state, state_old, *_ = tf.while_loop(self.condition, self.convergence,
                                                 [k, state, state_old, nodes, nodes_index,
@@ -459,6 +461,7 @@ class GNNgraphBased(GNN):
 ### CLASS GNN - EDGE BASED ############################################################################################
 #######################################################################################################################
 class GNNedgeBased(GNN):
+    #@tf.function
     def apply_filters(self, state_converged, nodes, nodes_index, arcs_label, mask):
         """takes only arcs info of those with output_mask==1 AND belonging to set (in case Dataset == 1 Graph)"""
         if self.state_vect_dim: state_converged = tf.concat((nodes, state_converged), axis=1)
@@ -479,6 +482,7 @@ class GNNedgeBased(GNN):
 #######################################################################################################################
 ## GNN v1 by A.Rossi and M.Tiezzi
 class GNN2(GNN):
+    @tf.function
     def convergence(self, k, state, state_old, nodes, nodes_index, arcs_label, arcnode, training):
         # gather source nodes label
         source_label = tf.gather(nodes, nodes_index[:, 0])
