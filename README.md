@@ -13,24 +13,15 @@ To install the requirements you can use the following command:
 
 
 ## Simple usage example
-To train a GNN, simply run [starter.py](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/starter.py):
+To train a GNN, simply run `starter.py`:
 
     import starter
 
-In this script, set parameters in section *SCRIPT OPTIONS* to change script behaviour, then run it. 
+In this [script](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/starter.py), set parameters in section *SCRIPT OPTIONS* to change script behaviour, then run it. 
 
-In particular, by default
-    
-    use_MUTAG = False
+In particular, by default `use_MUTAG = False`, meaning that the GNN is trained on a dataset composed of graphs with random nodes/edges/targets.
 
-It means that the GNN is trained on a dataset composed of graphs with random nodes/edges/targets.
-
-Set
-
-    use_MUTAG = True 
-
-
-to train the GNN on the real-world dataset MUTAG for solving a graph-based problem 
+Set `use_MUTAG = True` to train the GNN on the real-world dataset MUTAG for solving a graph-based problem 
 ([here](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/MUTAG_raw/Mutagenicity_label_readme.txt) for details)
 
 
