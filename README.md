@@ -33,7 +33,7 @@ To cite the GNN implementation please use the following publication:
     
 Bibtex:
 
-    @proceedings{Pancino2020PPI,
+    @inproceedings{Pancino2020PPI,
       title={Graph Neural Networks for the Prediction of Protein–Protein Interfaces},
       author={Niccolò Pancino, Alberto Rossi, Giorgio Ciano, Giorgia Giacomini, Simone Bonechi, Paolo Andreini, Franco Scarselli, Monica Bianchini, Pietro Bongini},
       booktitle={28th European Symposium on Artificial Neural Networks, Computational Intelligence and Machine Learning (online event)},
