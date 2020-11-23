@@ -2,13 +2,13 @@ import tensorflow as tf
 import numpy as np
 import GNN as GNN
 import GNN_utils as utils
+import GNN_metrics as mt
 from graph_class import GraphObject
 
 
 #######################################################################################################################
 # Possible values for extra_metrics ###################################################################################
 #######################################################################################################################
-import GNN_metrics as mt
 Metrics = {'Acc': mt.accuracy_score, 'Bacc': mt.balanced_accuracy_score, 'Js': mt.jaccard_score,
            'Ck': mt.cohen_kappa_score, 'Prec': mt.precision_score, 'Rec': mt.recall_score,
            'Fs': mt.fbscore, 'Tpr': mt.TPR, 'Tnr': mt.TNR, 'Fpr': mt.FPR, 'Fnr': mt.FNR}
