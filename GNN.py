@@ -165,7 +165,7 @@ class GNN:
         nodes_index = tf.constant(g.getArcs()[:, :2], dtype=tf.int32)
         arcs_label = tf.constant(g.getArcs()[:, 2:], dtype=tf.float32)
         arcnode = self.ArcNode2SparseTensor(g.getArcNode())
-        mask = tf.constant(g.getSetMask() == g.getOutputMask())
+        mask = tf.logical_and(g.getSetMask(),g.getOutputMask())
         # initialize all the useful variables for convergence loop
         k = tf.constant(0, dtype=tf.float32)
         state = tf.constant(g.initState(self.state_vect_dim), dtype=tf.float32)

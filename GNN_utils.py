@@ -52,7 +52,7 @@ def randomGraph(nodes_number: int, dim_node_label: int, dim_arc_label: int, dim_
     # clusters
     if problem_based in ['a', 'n']:
         from sklearn.cluster import AgglomerativeClustering
-        j = AgglomerativeClustering(n_clusters=dim_target).fit(arcs[:, 2:] if problem_based == 'a' else nodes[:, 1:])
+        j = AgglomerativeClustering(n_clusters=dim_target).fit(arcs[:, 2:] if problem_based == 'a' else nodes)
         i = range(target_number)
         targs[i, j.labels_] = 1
     else: targs[0, np.random.choice(range(targs.shape[1]))] = 1
