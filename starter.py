@@ -1,9 +1,9 @@
-import tensorflow as tf
 import numpy as np
-import GNN as GNN
-import GNN_utils as utils
-import GNN_metrics as mt
-from graph_class import GraphObject
+import tensorflow as tf
+import GNN.GNN as GNN
+import GNN.GNN_metrics as mt
+import GNN.GNN_utils as utils
+from GNN.graph_class import GraphObject
 
 
 #######################################################################################################################
@@ -18,7 +18,7 @@ Metrics = {'Acc': mt.accuracy_score, 'Bacc': mt.balanced_accuracy_score, 'Js': m
 # SCRIPT OPTIONS - modify the parameters to adapt the execution to the problem under consideration ####################
 #######################################################################################################################
 ### USE MUTAG DATASET - Graph-Based Problem (problem_type=='cg1', see below for details)
-use_MUTAG: bool = False
+use_MUTAG   : bool = True
 
 
 ### GENERIC GRAPH PARAMETERS. See utils.randomGraph for details
@@ -27,59 +27,59 @@ use_MUTAG: bool = False
 # Possible problem_type (str) s.t. len(problem_tye) in[2,3]: 'outputModel + problemAddressed + typeGNNTobeUsed'.
 # > ['c' classification, 'r' regression] + ['g' graph-based; 'n' node-based; 'a' arc-based;] +[('','1') GNN1, '2' GNN2]
 # > Example: 'cn' or 'cn1': node-based classification with GNN; 'ra2' arc-based regression with GNN2 (Rossi-Tiezzi)
-problem_type: str = 'cg'
-graphs_number: int = 100
-max_nodes_number: int = 40  # each graph has at most 30 nodes
-min_nodes_number: int = 15  # each graph has at least 30 nodes
-dim_node_label: int = 3
-dim_arc_label: int = 1
-dim_target: int = 2
-density: float = 0.7
-node_aggregation: str = 'sum'
+problem_type        : str   = 'cg'
+graphs_number       : int   = 100
+max_nodes_number    : int   = 40  # each graph has at most 30 nodes
+min_nodes_number    : int   = 15  # each graph has at least 30 nodes
+dim_node_label      : int   = 3
+dim_arc_label       : int   = 1
+dim_target          : int   = 2
+density             : float = 0.7
+node_aggregation    : str   = 'sum'
 
 ### LEARNING SETS PARAMETERS
-perc_Train: float = 0.8
-perc_Valid: float = 0.1
-batch_size: int = 32
-normalize: bool = True
-seed = None
-norm_nodes_range = None  # (-1,1) # other possible value
-norm_arcs_range = None  # (0,1) # other possible value
+perc_Train          : float = 0.8
+perc_Valid          : float = 0.1
+batch_size          : int   = 32
+normalize           : bool  = True
+seed                        = None
+norm_nodes_range            = None  # (-1,1) # other possible value
+norm_arcs_range             = None  # (0,1) # other possible value
 
 ### NET STATE PARAMETERS
-hidden_units_net_state: list = [150, 150]
-activations_net_state: str = 'selu'
-kernel_init_net_state: str = 'lecun_uniform'
-bias_init_net_state: str = 'lecun_uniform'
-dropout_rate_st: float = 0.1
-dropout_pos_st: list= [0]
+hidden_units_net_state  : list  = [150, 150]
+activations_net_state   : str   = 'selu'
+kernel_init_net_state   : str   = 'lecun_uniform'
+bias_init_net_state     : str   = 'lecun_uniform'
+dropout_rate_st         : float = 0.1
+dropout_pos_st          : list  = [0]
 
 ### NET OUTPUT PARAMETERS
-hidden_units_net_output: list = [150]
-activations_net_output: str = 'linear'
-kernel_init_net_output: str = 'glorot_uniform'
-bias_init_net_output: str = 'glorot_uniform'
-dropout_rate_out: float = 0.1
-dropout_pos_out: list= [0]
+hidden_units_net_output : list  = [150]
+activations_net_output  : str   = 'linear'
+kernel_init_net_output  : str   = 'glorot_uniform'
+bias_init_net_output    : str   = 'glorot_uniform'
+dropout_rate_out        : float = 0.1
+dropout_pos_out         : list  = [0]
 
 ### GNN PARAMETERS
-learning_rate = 0.001
-optgnn = tf.optimizers.Adam(learning_rate=learning_rate)
-lossF = tf.nn.softmax_cross_entropy_with_logits
-lossArguments = None
-extra_metrics = {i: Metrics[i] for i in ['Acc', 'Bacc', 'Ck', 'Fs', 'Js', 'Prec', 'Rec', 'Tpr','Tnr','Fpr','Fnr']}
-metrics_args = {i: {'avg': 'weighted', 'pos_label': None} for i in ['Fs', 'Prec', 'Rec', 'Js']}
-output_f = tf.keras.activations.softmax
-epochs = 100
-max_iter = 5
+learning_rate   = 0.001
+optgnn          = tf.optimizers.Adam(learning_rate=learning_rate)
+lossF           = tf.nn.softmax_cross_entropy_with_logits
+lossArguments   = None
+extra_metrics   = {i: Metrics[i] for i in ['Acc', 'Bacc', 'Ck', 'Fs', 'Js', 'Prec', 'Rec', 'Tpr','Tnr','Fpr','Fnr']}
+metrics_args    = {i: {'avg': 'weighted', 'pos_label': None} for i in ['Fs', 'Prec', 'Rec', 'Js']}
+output_f        = tf.keras.activations.softmax
+epochs          = 100
+max_iter        = 5
 state_threshold = 0.01
-path_writer = 'writer'
-dim_state = 10
+path_writer     = 'writer'
+dim_state       = 10
 
 ### LEARNING / TEST OPTIONS
-training: bool = True
-testing: bool = True
-rocdir = 'roc'
+training    : bool  = True
+testing     : bool  = True
+rocdir              = 'roc'
 
 
 #######################################################################################################################
@@ -89,12 +89,12 @@ rocdir = 'roc'
 if use_MUTAG:
     print('> Loading MUTAG')
     ### CREATE DATASET FROM MUTAG
-    from load_MUTAG import graphs
     problem_type = 'cg1'
+    from load_MUTAG import graphs
 else:
     print('> Creating Dataset')
-    if len(problem_type) == 2: problem_type += '1'
     ### CREATE RANDOM DATASET
+    if len(problem_type) == 2: problem_type += '1'
     graphs = [utils.randomGraph(nodes_number=int(np.random.choice(range(min_nodes_number,max_nodes_number))),
                                 dim_node_label=dim_node_label,
                                 dim_arc_label=dim_arc_label,
