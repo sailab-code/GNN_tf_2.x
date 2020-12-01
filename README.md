@@ -24,7 +24,7 @@ Set `use_MUTAG = True` to train the GNN on the real-world dataset MUTAG for solv
 
 
 ### GNN implementation flow chart
-The following image shows the detailed GNN implementation as it appears in `GNN/GNN.py`.
+The following image details the GNN model as it is implemented in `GNN / GNN.py`.
 ![GNN Convergence Loop](GNN/GNN_flow_chart.png)
 
 ## Citing
