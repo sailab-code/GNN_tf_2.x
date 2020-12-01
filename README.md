@@ -23,7 +23,7 @@ In particular, by default `use_MUTAG = False`, meaning that the GNN is trained o
 Set `use_MUTAG = True` to train the GNN on the real-world dataset MUTAG for solving a graph-based problem ([details](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/MUTAG_raw/Mutagenicity_label_readme.txt))
 
 
-#### GNN implementation flow chart
+### GNN implementation flow chart
 The following image shows the detailed GNN implementation as it appears in `GNN/GNN.py`.
 ![GNN Convergence Loop](GNN/GNN_flow_chart.png)
 
