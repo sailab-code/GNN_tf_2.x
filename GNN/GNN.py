@@ -243,7 +243,7 @@ class GNN:
         :param max_fails: (int) specifies the max number of failures before early sopping
         :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss
         :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, else as the mean
-        :param verbose: (int) 0: silent mode; 1:print epochs/batches; 2: print history; 3: history + epochs/batches
+        :param verbose: (int) 0: silent mode; 1: print history; 2: print epochs/batches, 3: print history + epochs/batches
         """
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
