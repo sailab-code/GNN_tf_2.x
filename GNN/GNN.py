@@ -18,9 +18,13 @@ pd.options.display.max_rows = 15
 ### CLASS GNN - NODE BASED ############################################################################################
 #######################################################################################################################
 class GNN:
-    
+
     ## CONSTRUCTORS METHODS ###########################################################################################
-    def __init__(self, net_state, net_output, optimizer, loss_function,
+    def __init__(self,
+                 net_state: tf.keras.models.Sequential,
+                 net_output: tf.keras.models.Sequential,
+                 optimizer: tf.keras.optimizers.Optimizer,
+                 loss_function: tf.keras.losses.Loss,
                  loss_arguments: dict = None,
                  output_activation=None,
                  max_iteration: int = 30,
