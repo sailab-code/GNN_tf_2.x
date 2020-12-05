@@ -1,12 +1,16 @@
 # coding=utf-8
 import os
 import shutil
+
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+
 import GNN.GNN_metrics as mt
 import GNN.GNN_utils as utils
 from GNN.graph_class import GraphObject
+
+from typing import Optional, Union, Dict, List, Tuple
 pd.options.display.max_rows = 15
 
 
@@ -22,9 +26,9 @@ class GNN:
                  threshold: float = 0.1,
                  path_writer: str = 'writer/',
                  addressed_problem: str = 'c',
-                 extra_metrics=None,
-                 metrics_arguments=None,
-                 state_vect_dim: int = 0):
+                 extra_metrics: Optional[dict] = None,
+                 metrics_arguments: Optional[Dict[str, dict]] = None,
+                 state_vect_dim: int = 0) -> None:
         """ CONSTRUCTOR
         :param net_state: (tf.keras.model.Sequential) MLP for the state network, initialized externally
         :param net_output: (tf.keras.model.Sequential) MLP for the output network, initialized externally
@@ -54,8 +58,7 @@ class GNN:
         self.state_threshold = threshold
         self.state_vect_dim = state_vect_dim
         # check last activation function: in case loss works with logits, it is set by <output_activation> parameter
-        if output_activation: self.output_activation = output_activation
-        else: self.output_activation = tf.keras.activations.linear
+        self.output_activation = tf.keras.activations.linear if output_activation is None else output_activation
         # Writer for Tensorboard - Nets histograms and Distributions
         self.path_writer = path_writer if path_writer[-1] == '/' else path_writer + '/'
         if os.path.exists(self.path_writer): shutil.rmtree(self.path_writer)
@@ -64,14 +67,14 @@ class GNN:
         self.addressed_problem = addressed_problem
         # Metrics to be evaluated during training process
         self.extra_metrics = dict() if extra_metrics is None else extra_metrics
-        self.mt_args = metrics_arguments if metrics_arguments else dict()
+        self.mt_args = dict() if metrics_arguments is None else metrics_arguments
         # history object (dict) - to summarize the training process
         keys = ['Epoch', 'It Tr', 'It Va', 'Fail', 'Best Loss Va', 'Loss Tr', 'Loss Va']
         keys += [i + j for i in self.extra_metrics for j in [' Tr', ' Va']]
         self.history = {k: list() for k in keys}
 
     # -----------------------------------------------------------------------------------------------------------------
-    def copy(self, *, path_writer: str = '', copy_weights: bool = True):
+    def copy(self, *, path_writer: str = '', copy_weights: bool = True) -> Union['GNN', 'GNNedgeBased', 'GNNgraphBased', 'GNN2']:
         """ COPY METHOD
         :param path_writer: None or (str), to save copied gnn writer. Default is in the same folder + '_copied'
         :param copy_weights: (bool) True: copied_gnn.nets==self.nets; False: state and output are re-initialized
@@ -97,14 +100,14 @@ class GNN:
                               state_vect_dim=self.state_vect_dim)
 
     ## HISTORY METHODS ################################################################################################
-    def update_history(self, name, val):
+    def update_history(self, name: str, val: dict) -> None:
         """ update self.history with a dict s.t. val.keys()==self.history.keys()^{'Epoch','Best Loss Va'} """
         # name must be 'Tr' or 'Va', to update correctly training or validation history
         if name not in ['Tr', 'Va']: raise TypeError('param <name> must be \'Tr\' or \'Va\'')
         for key in val: self.history[key + ' ' + name].append(val[key])
 
     # -----------------------------------------------------------------------------------------------------------------
-    def printHistory(self):
+    def printHistory(self) -> None:
         """ print self.history """
         # CLEAR CONSOLE - only if in terminal, not in a pycharm-like software
         # os.system('cls' if os.name == 'nt' else 'clear')
@@ -116,8 +119,8 @@ class GNN:
     ## LOOP METHODS ###################################################################################################
     ## EDGE-BASED: @tf.function may raise error in tape.gradients(loss,...) because of the tf.gather in apply_filters()
     ## In TF2.3+ this will be hopefully fixed. LOOK https://github.com/tensorflow/tensorflow/issues/36236
-    #@tf.function
-    def convergence(self, k, state, state_old, nodes, nodes_index, arcs_label, arcnode, training):
+    # @tf.function
+    def convergence(self, k, state, state_old, nodes, nodes_index, arcs_label, arcnode, training) -> tuple:
         # compute the incoming message for each node: shape == (len(source_nodes_index, Num state components)
         source_state = tf.gather(state, nodes_index[:, 0])
         # concatenate the gathered source node states with the corresponding arc labels
@@ -134,7 +137,7 @@ class GNN:
         return k + 1, state_new, state, nodes, nodes_index, arcs_label, arcnode, training
 
     # -----------------------------------------------------------------------------------------------------------------
-    #@tf.function
+    # @tf.function
     def condition(self, k, state, state_old, *args) -> tf.bool:
         """ Boolean function condition for tf.while_loop correct processing graphs """
         # distance_vector is the Euclidean Distance: √ Σ(xi-yi)² between current state xi and past state yi
@@ -151,14 +154,14 @@ class GNN:
         return tf.logical_and(c1, c2)
 
     # -----------------------------------------------------------------------------------------------------------------
-    #@tf.function
-    def apply_filters(self, state_converged, nodes, nodes_index, arcs_label, mask):
+    # @tf.function
+    def apply_filters(self, state_converged, nodes, nodes_index, arcs_label, mask) -> tf.Tensor:
         """ takes only nodes states for those with output_mask==1 AND belonging to set (in case Dataset == 1 Graph) """
         if self.state_vect_dim: state_converged = tf.concat((nodes, state_converged), axis=1)
         return tf.boolean_mask(state_converged, mask)
 
     # -----------------------------------------------------------------------------------------------------------------
-    def Loop(self, g, *, training=False):
+    def Loop(self, g: GraphObject, *, training: bool =False) -> Tuple[int, tf.Tensor, tf.Tensor]:
         """ process a single graph, returning iteration, states and output """
         # retrieve quantities from graph f
         nodes = tf.constant(g.getNodes(), dtype=tf.float32)
@@ -174,32 +177,35 @@ class GNN:
         # loop until convergence is reached
         k, state, state_old, *_ = tf.while_loop(self.condition, self.convergence, [k, state, state_old, nodes, nodes_index, arcs_label, arcnode, training])
         # out_st is the converged state for the filtered nodes, depending on g.set_mask
-        out_st = self.apply_filters(state, nodes, nodes_index, arcs_label, mask)
+        input_to_net_output = self.apply_filters(state, nodes, nodes_index, arcs_label, mask)
         # compute the output of the gnn network
-        out_gnn = self.net_output(out_st, training=training)
-        return k, out_st, out_gnn
+        out = self.net_output(input_to_net_output, training=training)
+        return k, state, out
+
 
     ## CALL/PREDICT METHOD ############################################################################################
-    def __call__(self, g):
-        """ return ONLY the GNN output for graph g of type GraphObject """
+    def __call__(self, g: GraphObject) -> tf.Tensor:
+        """ return ONLY the GNN output in testo mode (training == False) for graph g of type GraphObject """
         out = self.Loop(g, training=False)[-1]
         return self.output_activation(out)
 
+
     ## EVALUATE METHODs ###############################################################################################
-    def evaluate_single_graph(self, g, class_weights):
+    def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, List[float]]) -> tuple:
         """ evaluate method for evaluating one graph single graph. Returns iteration, loss, target and output """
         # get targets
         targs = tf.constant(g.getTargets(), dtype=tf.float32)
         if g.problem_based != 'g': targs = targs[tf.logical_and(g.getSetMask(), g.getOutputMask())]
         # graph processing
-        iter, outSt, out = self.Loop(g, training=False)
+        iter, _, out = self.Loop(g, training=False)
         # weighted loss if class_metrics != 1, else it does not modify loss values
         loss_weight = tf.reduce_sum(class_weights * targs, axis=1)
         loss = self.loss_function(targs, out, **self.loss_args)
         loss *= loss_weight
         return iter, loss, targs, self.output_activation(out)
 
-    def evaluate(self, g, class_weights):
+    # -----------------------------------------------------------------------------------------------------------------
+    def evaluate(self, g: Union[GraphObject, List[GraphObject]], class_weights: Union[int, float, List[float]]) -> tuple:
         """ return ALL the metrics in self.extra_metrics + Iter & Loss for a GraphObject or a list of GraphObjects
         :param g: element/list of GraphObject to be evaluated
         :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss
@@ -217,14 +223,16 @@ class GNN:
         y_true = tf.argmax(targets, axis=1) if self.addressed_problem == 'c' else targets
         y_pred = tf.argmax(y_score, axis=1) if self.addressed_problem == 'c' else y_score
         # evaluate metrics
-        metr={k:float(self.extra_metrics[k](y_true,y_pred,**self.mt_args.get(k, dict()))) for k in self.extra_metrics}
+        metr = {k: float(self.extra_metrics[k](y_true, y_pred, **self.mt_args.get(k, dict()))) for k in self.extra_metrics}
         metr['It'] = int(tf.reduce_mean(iters))
         metr['Loss'] = float(tf.reduce_mean(loss))
         return metr, metr['Loss'], y_true, y_pred, targets, y_score
 
+
     ## TRAINING METHOD ################################################################################################
-    def train(self, gTr, epochs: int = 10, gVa=None, validation_freq: int = 10, max_fails: int = 10, class_weights=1,
-              *, mean: bool = False, verbose: int = 3):
+    def train(self, gTr: Union[GraphObject, List[GraphObject]], epochs: int = 10,
+              gVa: Union[GraphObject, List[GraphObject], None] = None, validation_freq: int = 10, max_fails: int = 10,
+              class_weights: Union[int, List[float]] = 1, *, mean: bool = False, verbose: int = 3) -> None:
         """ TRAIN PROCEDURE
         :param gTr: element/list of GraphObjects used for the learning procedure
         :param epochs: (int) the max number of epochs for the learning procedure
@@ -235,18 +243,22 @@ class GNN:
         :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, else as the mean
         :param verbose: (int) 0: silent mode; 1:print epochs/batches; 2: print history; 3: history + epochs/batches
         """
-        def checktype(elem):
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        def checktype(elem: Optional[Union[GraphObject, List[GraphObject]]]):
             """ check if type(elem) is correct. If so, return None or a list og GraphObjects """
             if elem is None: return None
             if type(elem) == GraphObject: return [elem]
             elif isinstance(elem, (list, tuple)) and all(isinstance(x, GraphObject) for x in elem): return list(elem)
             else: raise TypeError('Error - <gTr> and/or <gVa> are not GraphObject or LIST/TUPLE of GraphObjects')
+
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        def reset_validation(valid_loss):
+        def reset_validation(valid_loss: float):
             """ inner-method used to reset the validation check parameters and to save the 'best weights until now' """
             return valid_loss, 0, self.net_state.get_weights(), self.net_output.get_weights()
+
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        def training_step(gTr, mean):
+        def training_step(gTr: GraphObject, mean: bool):
             """ compute the gradients and apply them """
             with tf.GradientTape() as tape:
                 iter, loss, *_ = self.evaluate_single_graph(gTr, class_weights)
@@ -256,6 +268,7 @@ class GNN:
             # apply gradients
             zipped = zip(dwbS + dwbO, self.net_state.trainable_variables + self.net_output.trainable_variables)
             self.optimizer.apply_gradients(zipped)
+
         ### TRAINING FUNCTION -----------------------------------------------------------------------------------------
         if verbose not in range(4): raise ValueError('param <verbose> not in [0,1,2,3]')
         # Checking type for gTr and gVa + Initialization of Validation parameters
@@ -276,7 +289,7 @@ class GNN:
             # TRAINING STEP
             for i, elem in enumerate(gTr):
                 training_step(elem, mean=mean)
-                if verbose > 1: print(' > Epoch {:4d}/{} \t\t> Batch {:4d}/{}'.format(e,epochs, i+1,len(gTr)),end='\r')
+                if verbose > 1: print(' > Epoch {:4d}/{} \t\t> Batch {:4d}/{}'.format(e, epochs, i + 1, len(gTr)), end='\r')
             # TRAINING EVALUATION STEP
             if e % validation_freq == 0:
                 metricsTr, *_ = self.evaluate(gTr, class_weights)
@@ -313,7 +326,8 @@ class GNN:
         self.write_net_weights(netO_writer, self.net_output.get_weights(), e, net_name='N2')
 
     ## TEST METHOD ####################################################################################################
-    def test(self, gTe, *, acc_classes=True, rocdir='', micro_and_macro=False, prisofsdir=''):
+    def test(self, gTe: Union[GraphObject, List[GraphObject]], *, acc_classes: bool = True, rocdir: str = '',
+             micro_and_macro: bool = False, prisofsdir: str = '') -> Dict[str, List[float]]:
         """ TEST PROCEDURE
         :param gTe: element/list of GraphObjects for testing procedure
         :param accuracy_class: (bool) if True print accuracy for classes
@@ -338,8 +352,10 @@ class GNN:
         return metricsTe
 
     ## K-FOLD CROSS VALIDATION METHOD #################################################################################
-    def LKO(self, dataset, node_aggregation, number_of_batches=10, seed=None, normalize_method='gTr', verbose=3,
-            acc_classes=False, epochs=500, Va=False, validation_freq=10, max_fails=10, class_weights=1, mean=False):
+    def LKO(self, dataset: Union[List[GraphObject], List[List[GraphObject]]], node_aggregation: str,
+            number_of_batches: int = 10, seed: Optional[float] = None, normalize_method: str = 'gTr', verbose: int = 3,
+            acc_classes: bool = False, epochs: int = 500, useVa: bool = False, validation_freq: int = 10,
+            max_fails: int = 10, class_weights: Union[int, float, List[Union[float, int]]] = 1, mean: bool = False) -> Dict[str, List[float]]:
         """ LEAVE K OUT PROCEDURE
         :param dataset: (list) of GraphObject OR (list) of lists of GraphObject on which <gnn> has to be valuated
                             > NOTE: for graph-based problem, if type(dataset) == list of GraphObject,
@@ -371,7 +387,7 @@ class GNN:
         np.random.shuffle(dataset)
         for i in dataset: np.random.shuffle(i)
         # Dataset creation, based on param <dataset>
-        if Va: number_of_batches += 1
+        if useVa: number_of_batches += 1
         dataset_batches = [utils.getbatches(elem, node_aggregation=node_aggregation,
                                             number_of_batches=number_of_batches, one_graph_per_batch=False)
                            for i, elem in enumerate(dataset)]
@@ -385,12 +401,12 @@ class GNN:
         metrics = {i: list() for i in list(self.extra_metrics) + ['It', 'Loss']}
         if acc_classes: metrics['Acc Classes'] = list()
         # LKO PROCEDURE
-        len_dataset = len(dataset) - (1 if Va else 0)
+        len_dataset = len(dataset) - (1 if useVa else 0)
         for i in range(len_dataset):
             # split dataset in training/validation/test set
             gTr = dataset.copy()
             gTe = gTr.pop(i)
-            gVa = gTr.pop(-1) if Va else None
+            gVa = gTr.pop(-1) if useVa else None
             # normalization procedure
             utils.normalize_graphs(gTr, gVa, gTe, based_on=normalize_method)
             # gnn creation, learning and test
@@ -404,7 +420,7 @@ class GNN:
 
     ## STATIC METHODs #################################################################################################
     @staticmethod
-    def ArcNode2SparseTensor(ArcNode):
+    def ArcNode2SparseTensor(ArcNode) -> tf.Tensor:
         # ArcNode Tensor, then reordered to be correctly computable. NOTE: reorder() recommended by TF2.0+
         indices = [[ArcNode.row[i], ArcNode.col[i]] for i in range(ArcNode.shape[0])]
         arcnode = tf.SparseTensor(indices, values=ArcNode.data, dense_shape=ArcNode.shape)
@@ -415,7 +431,7 @@ class GNN:
 
     # -----------------------------------------------------------------------------------------------------------------
     @staticmethod
-    def write_net_weights(writer, val_list, epoch, net_name):
+    def write_net_weights(writer: tf.summary.SummaryWriter, val_list: List[tf.Tensor], epoch: int, net_name: str) -> None:
         if net_name not in ['N1', 'N2']: raise ValueError('param net_name must be in [N1,N2]')
         weights, biases = val_list[0::2], val_list[1::2]
         length = len(weights)
@@ -428,7 +444,7 @@ class GNN:
 
     # -----------------------------------------------------------------------------------------------------------------
     @staticmethod
-    def write_vals(writer, metrics, epoch):
+    def write_vals(writer: tf.summary.SummaryWriter, metrics: Dict[str, float], epoch: int) -> None:
         if type(metrics) != dict: raise TypeError('type of param <metrics> must be dict')
         names = {'Acc': 'Accuracy', 'Bacc': 'Balanced Accuracy', 'Ck': 'Cohen\'s Kappa', 'Js': 'Jaccard Score',
                  'Fs': 'F1-Score', 'Prec': 'Precision Score', 'Rec': 'Recall Score', 'Tpr': 'TPR', 'Tnr': 'TNR',
@@ -447,7 +463,7 @@ class GNN:
 ### CLASS GNN - GRAPH BASED ###########################################################################################
 #######################################################################################################################
 class GNNgraphBased(GNN):
-    def Loop(self, g, *, training=False):
+    def Loop(self, g :GraphObject, *, training: bool=False) -> Tuple[int, tf.Tensor, tf.Tensor]:
         iter, state_nodes, out_nodes = GNN.Loop(self, g, training=training)
         # obtain a single output for each graph, by averaging the output of all of its nodes
         nodegraph = tf.constant(g.getNodeGraph(), dtype=tf.float32)
@@ -459,8 +475,8 @@ class GNNgraphBased(GNN):
 ### CLASS GNN - EDGE BASED ############################################################################################
 #######################################################################################################################
 class GNNedgeBased(GNN):
-    #@tf.function
-    def apply_filters(self, state_converged, nodes, nodes_index, arcs_label, mask):
+    # @tf.function
+    def apply_filters(self, state_converged, nodes, nodes_index, arcs_label, mask) -> tf.Tensor:
         """ takes only arcs info of those with output_mask==1 AND belonging to set (in case Dataset == 1 Graph) """
         if self.state_vect_dim: state_converged = tf.concat((nodes, state_converged), axis=1)
         # gather source nodes state
@@ -480,7 +496,7 @@ class GNNedgeBased(GNN):
 #######################################################################################################################
 ## GNN v1 by A.Rossi and M.Tiezzi
 class GNN2(GNN):
-    @tf.function
+    # @tf.function
     def convergence(self, k, state, state_old, nodes, nodes_index, arcs_label, arcnode, training):
         # gather source nodes label
         source_label = tf.gather(nodes, nodes_index[:, 0])

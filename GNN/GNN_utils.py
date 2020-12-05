@@ -1,5 +1,8 @@
 # coding=utf-8
+from typing import Union, List, Tuple, Optional
+
 import numpy as np
+
 from GNN.graph_class import GraphObject
 
 
@@ -68,7 +71,7 @@ def randomGraph(nodes_number: int, dim_node_label: int, dim_arc_label: int, dim_
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def simple_graph(problem_based: str, aggregation: str = 'average'):
+def simple_graph(problem_based: str, aggregation: str = 'average') -> GraphObject:
     """ return a single simple GraphObject for debugging purpose """
     nodes = np.array([[11, 21], [12, 22], [13, 23], [14, 24]])
     arcs = np.array([[0, 1, 10], [0, 2, 40], [1, 0, 10], [1, 2, 20], [2, 0, 40], [2, 1, 20], [2, 3, 30], [3, 2, 30]])
@@ -77,16 +80,15 @@ def simple_graph(problem_based: str, aggregation: str = 'average'):
     targs = np.zeros((target_number, 2))
     if problem_based in ['a', 'n']:
         from sklearn.cluster import AgglomerativeClustering
-        j = AgglomerativeClustering(n_clusters=2).fit(arcs[:, 2:] if problem_based == 'a' else nodes[:, 1:])
+        j = AgglomerativeClustering(n_clusters=2).fit(arcs[:, 2:] if problem_based == 'a' else nodes)
         i = range(target_number)
         targs[i, j.labels_] = 1
     else: targs[0, 1] = 1
-    return GraphObject(arcs=arcs, nodes=nodes, targets=targs,
-					   problem_based=problem_based, node_aggregation=aggregation)
+    return GraphObject(arcs=arcs, nodes=nodes, targets=targs, problem_based=problem_based, node_aggregation=aggregation)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def progressbar(percent: float, width: int = 30):
+def progressbar(percent: float, width: int = 30) -> None:
     """ Print a progressbar, given a percentage in [0,100] and a fixed length """
     left = round(width * percent / 100)
     right = int(width - left)
@@ -94,9 +96,9 @@ def progressbar(percent: float, width: int = 30):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def getindices(glist: list, perc_Train: float = 0.7, perc_Valid: float = 0.1, seed=None):
+def getindices(len_dataset: int, perc_Train: float = 0.7, perc_Valid: float = 0.1, seed=None) -> Union[Tuple[List[int], List[int]], Tuple[List[int], List[int], List[int]]]:
     """ Divide the dataset into Train/Test or Train/Validation/Test
-    :param glist: list to be split
+    :param len_dataset: length of the dataset
     :param perc_Train: (float) in [0,1]
     :param perc_Valid: (float) in [0,1]
     :param seed: (float/None/False) Fixed shuffle mode / random shuffle mode / no shuffle performed
@@ -105,14 +107,13 @@ def getindices(glist: list, perc_Train: float = 0.7, perc_Valid: float = 0.1, se
     if perc_Train < 0 or perc_Valid < 0 or perc_Train + perc_Valid > 1:
         raise ValueError('Error - percentage must stay in [0-1] and their sum must be <= 1')
     # shuffle elements
-    length = len(glist)
-    idx = list(range(length))
+    idx = list(range(len_dataset))
     if seed: np.random.seed(seed)
     if seed is not False: np.random.shuffle(idx)
     # samples
     perc_Test = 1 - perc_Train - perc_Valid
-    sampleTest = round(length * perc_Test)
-    sampleValid = round(length * perc_Valid)
+    sampleTest = round(len_dataset * perc_Test)
+    sampleValid = round(len_dataset * perc_Valid)
     # test indices
     test_idx = idx[:sampleTest]
     # validation indices
@@ -123,7 +124,8 @@ def getindices(glist: list, perc_Train: float = 0.7, perc_Valid: float = 0.1, se
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def getSet(glist: list, set_indices: list, problem_based: str, node_aggregation: str, verbose: bool = False):
+def getSet(glist: List[GraphObject], set_indices: List[int], problem_based: str, node_aggregation: str,
+           verbose: bool = False) -> List[GraphObject]:
     """ get the Set from a dataset given its set of indices
     :param glist: (list of GraphObject or str) dataset from which the set is picked
     :param set_indices: (list of int) indices of the elements belonging to the Set
@@ -131,8 +133,10 @@ def getSet(glist: list, set_indices: list, problem_based: str, node_aggregation:
     :param verbose: (bool) if True print the progressbar, else silent mode
     :return: list of GraphObject, composing the Set
     """
+    # check type
     if not (type(glist) == list and all(isinstance(x, str) for x in glist)):
         raise TypeError('type of param <glist> must be list of str \'path-like\' or GraphObjects')
+    # get set
     length, setlist = len(set_indices), list()
     for i, elem in enumerate(set_indices):
         setlist.append(glist[elem])
@@ -142,8 +146,8 @@ def getSet(glist: list, set_indices: list, problem_based: str, node_aggregation:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def getbatches(glist: list, node_aggregation: str, batch_size: int = 32, number_of_batches=None,
-               one_graph_per_batch=True):
+def getbatches(glist: List[GraphObject], node_aggregation: str, batch_size: int = 32, number_of_batches=None,
+               one_graph_per_batch=True) -> Union[List[GraphObject], List[List[GraphObject]]]:
     """ Divide the Set into batches, in which every batch is a GraphObject or a list of GraphObject
     :param glist: (list of GraphObject) to be split into batches
     :param batch_size: (int) specify the size of a normal batch. Note: len(batches[-1])<=batch_size
@@ -153,13 +157,16 @@ def getbatches(glist: list, node_aggregation: str, batch_size: int = 32, number_
     :return: a list of batches
     """
     if number_of_batches is None: batches = [glist[i:i + batch_size] for i in range(0, len(glist), batch_size)]
-    else:  batches = [list(i) for i in np.array_split(glist, number_of_batches)]
+    else: batches = [list(i) for i in np.array_split(glist, number_of_batches)]
     if one_graph_per_batch: batches = [GraphObject.merge(i, node_aggregation=node_aggregation) for i in batches]
     return batches
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def normalize_graphs(gTr, gVa, gTe, based_on: str = 'gTr', norm_rangeN=None, norm_rangeA=None):
+def normalize_graphs(gTr: Union[GraphObject, List[GraphObject]], gVa: Optional[Union[GraphObject, List[GraphObject]]],
+                     gTe: Optional[Union[GraphObject, List[GraphObject]]], based_on: str = 'gTr',
+                     norm_rangeN: Optional[Union[Tuple[float, float]]] = None,
+                     norm_rangeA: Optional[Union[Tuple[float, float], None]] = None) -> None:
     """ Normalize graph by using gTr or gTr+gVa+gTe information
     :param gTr: (GraphObject or list of GraphObjects) for Training Set
     :param gVa: (GraphObject or list of GraphObjects or None) for Validation Set
@@ -167,9 +174,9 @@ def normalize_graphs(gTr, gVa, gTe, based_on: str = 'gTr', norm_rangeN=None, nor
     :param based_on: (str) in ['gTr','all']. If 'gTr', ony info on gTr are used; if 'all', entire dataset info are used
     """
 
-    def checktype(g, name):
+    def checktype(g: Union[List[GraphObject], None], name: str):
         """ check g: it must be a GraphObect or a list of GraphObjects """
-        if g is None: return []
+        if g is None: return list()
         if not (type(g) == GraphObject or (type(g) == list and all(isinstance(x, GraphObject) for x in g))):
             raise TypeError('type of param <{}> must be GraphObject or list of Graphobjects'.format(name))
         return g if type(g) == list else [g]
@@ -191,16 +198,15 @@ def normalize_graphs(gTr, gVa, gTe, based_on: str = 'gTr', norm_rangeN=None, nor
     # normalize graphs
     for i in gTr + gVa + gTe:
         i.nodes = i.nodes / LabelNodesMAX if norm_rangeN is None else \
-            norm_rangeN[0] + (norm_rangeN[1] - norm_rangeN[0]) * (i.nodes - LabelNodesMIN) / (
-                        LabelNodesMAX - LabelNodesMIN)
+            norm_rangeN[0] + (norm_rangeN[1] - norm_rangeN[0]) * (i.nodes - LabelNodesMIN) / (LabelNodesMAX - LabelNodesMIN)
         i.arcs[:, 2:] = i.arcs[:, 2:] / LabelArcsMAX if norm_rangeA is None else \
-            norm_rangeA[0] + (norm_rangeA[1] - norm_rangeA[0]) * (i.arcs[:, 2:] - LabelArcsMIN) / (
-                        LabelArcsMAX - LabelArcsMIN)
+            norm_rangeA[0] + (norm_rangeA[1] - norm_rangeA[0]) * (i.arcs[:, 2:] - LabelArcsMIN) / (LabelArcsMAX - LabelArcsMIN)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def MLP(input_dim, layers, activations, kernel_initializer, bias_initializer,
-        dropout_percs=None, dropout_pos=None, alphadropout=False):
+def MLP(input_dim: int, layers: List[int], activations, kernel_initializer, bias_initializer,
+        dropout_percs: Union[List[float], float, None] = None, dropout_pos: Optional[Union[List[int], int]] = None,
+        alphadropout: bool = False):
     """ Quick building function for MLP model. All lists must have the same length
     :param input_dim: (int) specify the input dimension for the model
     :param layers: (int or list of int) specify the number of units in every layers
@@ -218,6 +224,7 @@ def MLP(input_dim, layers, activations, kernel_initializer, bias_initializer,
     if type(dropout_pos) == int:  dropout_pos = [dropout_pos]
     if type(dropout_percs) == float: dropout_percs = [dropout_percs for i in dropout_pos]
     if dropout_percs == None or dropout_pos == None: dropout_percs, dropout_pos = list(), list()
+    # check lengths
     if not (len(activations) == len(kernel_initializer) == len(bias_initializer) == len(layers)):
         raise ValueError('Dense parameters must have the same length to be correctly processed')
     if len(dropout_percs) != len(dropout_pos):
@@ -239,7 +246,8 @@ def MLP(input_dim, layers, activations, kernel_initializer, bias_initializer,
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def get_inout_dims(g, problem, net_name, dim_state, hidden_units) -> tuple:
+def get_inout_dims(net_name: str, dim_node_label: int, dim_arc_label: int, dim_target: int, problem: str,
+                   dim_state: int, hidden_units: Union[None, int, List[int]]) -> Tuple[int, List[int]]:
     """ Calculate input and output dimension for the MLP of state and output
     :param g: (GraphObject) generic graph of the dataset calculations are based on
     :param problem: (str) s.t. len(problem)=3 [{'c','r'} | {'a','n','g'} | {'1','2'}]
@@ -248,14 +256,14 @@ def get_inout_dims(g, problem, net_name, dim_state, hidden_units) -> tuple:
     :param hidden_units: (int or list of int) for specifying units on hidden layers
     """
     assert net_name in ['state', 'output']
-    if len(problem) == 2: problem += '1'
+    if len(problem) == 1: problem += '1'
     if net_name == 'output':
-        input_shape = (problem[1]=='a')*(g.DIM_NODE_LABEL +g.DIM_ARC_LABEL+dim_state) + g.DIM_NODE_LABEL + dim_state
-        output_shape = g.DIM_TARGET
+        input_shape = (problem[0] == 'a') * (dim_node_label + dim_arc_label + dim_state) + dim_node_label + dim_state
+        output_shape = dim_target
     else:
-        input_shape = g.DIM_ARC_LABEL + 2 * g.DIM_NODE_LABEL + dim_state * (1 + (problem[2] == '1'))
-        input_shape += g.DIM_NODE_LABEL * (dim_state == 0) * (problem[2] == '2')
-        output_shape = dim_state if dim_state else g.DIM_NODE_LABEL
+        input_shape = dim_arc_label + 2 * dim_node_label + dim_state * (1 + (problem[1] == '1'))
+        input_shape += dim_node_label * (dim_state == 0) * (problem[1] == '2')
+        output_shape = dim_state if dim_state else dim_node_label
     # hidden part
     if hidden_units is None or type(hidden_units) == int and hidden_units <= 0: hidden_units = []
     if type(hidden_units) == list: layers = hidden_units + [output_shape]
