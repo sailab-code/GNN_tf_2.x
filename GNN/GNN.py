@@ -18,6 +18,7 @@ pd.options.display.max_rows = 15
 ### CLASS GNN - NODE BASED ############################################################################################
 #######################################################################################################################
 class GNN:
+    
     ## CONSTRUCTORS METHODS ###########################################################################################
     def __init__(self, net_state, net_output, optimizer, loss_function,
                  loss_arguments: dict = None,
@@ -182,13 +183,11 @@ class GNN:
         out = self.net_output(input_to_net_output, training=training)
         return k, state, out
 
-
     ## CALL/PREDICT METHOD ############################################################################################
     def __call__(self, g: GraphObject) -> tf.Tensor:
         """ return ONLY the GNN output in testo mode (training == False) for graph g of type GraphObject """
         out = self.Loop(g, training=False)[-1]
         return self.output_activation(out)
-
 
     ## EVALUATE METHODs ###############################################################################################
     def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, List[float]]) -> tuple:
@@ -227,7 +226,6 @@ class GNN:
         metr['It'] = int(tf.reduce_mean(iters))
         metr['Loss'] = float(tf.reduce_mean(loss))
         return metr, metr['Loss'], y_true, y_pred, targets, y_score
-
 
     ## TRAINING METHOD ################################################################################################
     def train(self, gTr: Union[GraphObject, List[GraphObject]], epochs: int = 10,
