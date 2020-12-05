@@ -77,8 +77,8 @@ path_writer     = 'writer'
 dim_state       = 0
 
 ### LEARNING / TEST OPTIONS
-training    : True  = False
-testing     : True  = False
+training    : bool  = True
+testing     : bool  = True
 rocdir              = 'roc'
 
 
