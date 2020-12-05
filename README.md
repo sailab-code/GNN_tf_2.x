@@ -21,7 +21,7 @@ Open the script and set parameters in section *SCRIPT OPTIONS* to change script 
 
 By default both GNN training and GNN testing are performed.
 
-In particular, if `use_MUTAG = False`, the GNN is trained on a dataset composed of graphs with random nodes/edges/targets.
+In particular, `use_MUTAG = False` means that the GNN is trained on a dataset composed of graphs with random nodes/edges/targets.
 Set `use_MUTAG = True` to train the GNN on the real-world dataset MUTAG for solving a graph-based problem ([details](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/MUTAG_raw/Mutagenicity_label_readme.txt))
 
 
