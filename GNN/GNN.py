@@ -25,7 +25,7 @@ class GNN:
                  net_output: tf.keras.models.Sequential,
                  optimizer: tf.keras.optimizers.Optimizer,
                  loss_function: tf.keras.losses.Loss,
-                 loss_arguments: dict = None,
+                 loss_arguments: Optional[dict] = None,
                  output_activation=None,
                  max_iteration: int = 30,
                  threshold: float = 0.1,
