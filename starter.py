@@ -18,7 +18,7 @@ Metrics = {'Acc': mt.accuracy_score, 'Bacc': mt.balanced_accuracy_score, 'Js': m
 # SCRIPT OPTIONS - modify the parameters to adapt the execution to the problem under consideration ####################
 #######################################################################################################################
 ### USE MUTAG DATASET - Graph-Based Problem (problem_type=='cg1', see below for details)
-use_MUTAG   : bool = True
+use_MUTAG   : bool = False
 
 
 ### GENERIC GRAPH PARAMETERS. See utils.randomGraph for details
@@ -27,12 +27,12 @@ use_MUTAG   : bool = True
 # Possible problem_type (str) s.t. len(problem_tye) in[2,3]: 'outputModel + problemAddressed + typeGNNTobeUsed'.
 # > ['c' classification, 'r' regression] + ['g' graph-based; 'n' node-based; 'a' arc-based;] +[('','1') GNN1, '2' GNN2]
 # > Example: 'cn' or 'cn1': node-based classification with GNN; 'ra2' arc-based regression with GNN2 (Rossi-Tiezzi)
-problem_type        : str   = 'cg'
+problem_type        : str   = 'cn'
 graphs_number       : int   = 100
 max_nodes_number    : int   = 40  # each graph has at most 30 nodes
 min_nodes_number    : int   = 15  # each graph has at least 30 nodes
-dim_node_label      : int   = 3
-dim_arc_label       : int   = 1
+dim_node_label      : int   = 5
+dim_arc_label       : int   = 2
 dim_target          : int   = 2
 density             : float = 0.7
 node_aggregation    : str   = 'sum'
@@ -67,18 +67,18 @@ learning_rate   = 0.001
 optgnn          = tf.optimizers.Adam(learning_rate=learning_rate)
 lossF           = tf.nn.softmax_cross_entropy_with_logits
 lossArguments   = None
-extra_metrics   = {i: Metrics[i] for i in ['Acc', 'Bacc', 'Ck', 'Fs', 'Js', 'Prec', 'Rec', 'Tpr','Tnr','Fpr','Fnr']}
+extra_metrics   = {i: Metrics[i] for i in ['Acc', 'Bacc', 'Tpr', 'Tnr', 'Fpr', 'Fnr', 'Ck', 'Js', 'Prec', 'Rec', 'Fs']}
 metrics_args    = {i: {'avg': 'weighted', 'pos_label': None} for i in ['Fs', 'Prec', 'Rec', 'Js']}
 output_f        = tf.keras.activations.softmax
 epochs          = 100
 max_iter        = 5
 state_threshold = 0.01
 path_writer     = 'writer'
-dim_state       = 10
+dim_state       = 0
 
 ### LEARNING / TEST OPTIONS
-training    : bool  = True
-testing     : bool  = True
+training    : True  = False
+testing     : True  = False
 rocdir              = 'roc'
 
 
@@ -111,7 +111,7 @@ print('Problem Addressed:\t{} \nProblem Based:\t\t{} \nGNN:\t\t\t\t{}\n'.format(
 ### SPLITTING DATASET in Train, Validation and Test set
 problem_based = problem_type[1]
 print('Splitting Graphs in Sets')
-iTr, iVa, iTe = utils.getindices(graphs, perc_Train, perc_Valid, seed=seed)
+iTr, iVa, iTe = utils.getindices(len(graphs), perc_Train, perc_Valid, seed=seed)
 gTr = [graphs[i] for i in iTr]
 gVa = [graphs[i] for i in iVa]
 gTe = [graphs[i] for i in iTe]
@@ -131,7 +131,10 @@ if normalize:
                            norm_rangeA=norm_arcs_range)
 
 ### NETS - STATE
-input_net_st, layers_net_st = utils.get_inout_dims(gGen, problem_type, 'state', dim_state, hidden_units_net_state)
+input_net_st, layers_net_st = utils.get_inout_dims(net_name='state', dim_node_label=gGen.DIM_NODE_LABEL,
+                                                   dim_arc_label=gGen.DIM_ARC_LABEL, dim_target=gGen.DIM_TARGET,
+                                                   problem=problem_type[1:], dim_state=dim_state,
+                                                   hidden_units=hidden_units_net_state)
 netSt = utils.MLP(input_dim=input_net_st,
                   layers=layers_net_st,
                   activations=activations_net_state,
@@ -141,7 +144,10 @@ netSt = utils.MLP(input_dim=input_net_st,
                   dropout_pos=dropout_pos_st)
 
 ### NETS - OUTPUT
-input_net_out, layers_net_out = utils.get_inout_dims(gGen, problem_type, 'output', dim_state, hidden_units_net_output)
+input_net_out, layers_net_out = utils.get_inout_dims(net_name='output', dim_node_label=gGen.DIM_NODE_LABEL,
+                                                     dim_arc_label=gGen.DIM_ARC_LABEL, dim_target=gGen.DIM_TARGET,
+                                                     problem=problem_type[1:], dim_state=dim_state,
+                                                     hidden_units=hidden_units_net_output)
 netOut = utils.MLP(input_dim=input_net_out,
                    layers=layers_net_out,
                    activations=activations_net_output,
@@ -171,4 +177,6 @@ if testing:
     metrics = gnn.test(gTe, acc_classes=True, rocdir=rocdir)
     print('\nTest Res')
     for i in metrics: print(i, metrics[i])
+
+
 
