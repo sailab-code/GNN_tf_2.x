@@ -1,6 +1,6 @@
 # coding=utf-8
-
-from typing import Optional, List
+from __future__ import annotations
+from typing import Optional
 
 import numpy as np
 
@@ -154,7 +154,7 @@ class GraphObject:
 
     # -----------------------------------------------------------------------------------------------------------------
     @staticmethod
-    def merge(glist: List['GraphObject'], node_aggregation: str) -> 'GraphObject':
+    def merge(glist: list['GraphObject'], node_aggregation: str) -> 'GraphObject':
         """ Method to merge graphs: it takes in input a list of graphs and returns them as a single graph
         :param glist: list of GraphObjects.
                         NOTE If problem_based=='g', NodeGraph.shape==(Num nodes, Num graphs), else (Num nodes,1)
