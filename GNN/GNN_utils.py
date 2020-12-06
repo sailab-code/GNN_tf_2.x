@@ -1,5 +1,6 @@
 # coding=utf-8
-from typing import Union, List, Tuple, Optional
+from __future__ import annotations
+from typing import Union, Optional
 
 import numpy as np
 
@@ -96,7 +97,7 @@ def progressbar(percent: float, width: int = 30) -> None:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def getindices(len_dataset: int, perc_Train: float = 0.7, perc_Valid: float = 0.1, seed=None) -> Union[Tuple[List[int], List[int]], Tuple[List[int], List[int], List[int]]]:
+def getindices(len_dataset: int, perc_Train: float = 0.7, perc_Valid: float = 0.1, seed=None) -> Union[tuple[list[int], list[int]], tuple[list[int], list[int], list[int]]]:
     """ Divide the dataset into Train/Test or Train/Validation/Test
     :param len_dataset: length of the dataset
     :param perc_Train: (float) in [0,1]
@@ -124,8 +125,8 @@ def getindices(len_dataset: int, perc_Train: float = 0.7, perc_Valid: float = 0.
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def getSet(glist: List[GraphObject], set_indices: List[int], problem_based: str, node_aggregation: str,
-           verbose: bool = False) -> List[GraphObject]:
+def getSet(glist: list[GraphObject], set_indices: list[int], problem_based: str, node_aggregation: str,
+           verbose: bool = False) -> list[GraphObject]:
     """ get the Set from a dataset given its set of indices
     :param glist: (list of GraphObject or str) dataset from which the set is picked
     :param set_indices: (list of int) indices of the elements belonging to the Set
@@ -146,8 +147,8 @@ def getSet(glist: List[GraphObject], set_indices: List[int], problem_based: str,
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def getbatches(glist: List[GraphObject], node_aggregation: str, batch_size: int = 32, number_of_batches=None,
-               one_graph_per_batch=True) -> Union[List[GraphObject], List[List[GraphObject]]]:
+def getbatches(glist: list[GraphObject], node_aggregation: str, batch_size: int = 32, number_of_batches=None,
+               one_graph_per_batch=True) -> Union[list[GraphObject], list[list[GraphObject]]]:
     """ Divide the Set into batches, in which every batch is a GraphObject or a list of GraphObject
     :param glist: (list of GraphObject) to be split into batches
     :param batch_size: (int) specify the size of a normal batch. Note: len(batches[-1])<=batch_size
@@ -163,10 +164,10 @@ def getbatches(glist: List[GraphObject], node_aggregation: str, batch_size: int 
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def normalize_graphs(gTr: Union[GraphObject, List[GraphObject]], gVa: Optional[Union[GraphObject, List[GraphObject]]],
-                     gTe: Optional[Union[GraphObject, List[GraphObject]]], based_on: str = 'gTr',
-                     norm_rangeN: Optional[Union[Tuple[float, float]]] = None,
-                     norm_rangeA: Optional[Union[Tuple[float, float], None]] = None) -> None:
+def normalize_graphs(gTr: Union[GraphObject, list[GraphObject]], gVa: Optional[Union[GraphObject, list[GraphObject]]],
+                     gTe: Optional[Union[GraphObject, list[GraphObject]]], based_on: str = 'gTr',
+                     norm_rangeN: Optional[Union[tuple[float, float]]] = None,
+                     norm_rangeA: Optional[Union[tuple[float, float], None]] = None) -> None:
     """ Normalize graph by using gTr or gTr+gVa+gTe information
     :param gTr: (GraphObject or list of GraphObjects) for Training Set
     :param gVa: (GraphObject or list of GraphObjects or None) for Validation Set
@@ -174,7 +175,7 @@ def normalize_graphs(gTr: Union[GraphObject, List[GraphObject]], gVa: Optional[U
     :param based_on: (str) in ['gTr','all']. If 'gTr', ony info on gTr are used; if 'all', entire dataset info are used
     """
 
-    def checktype(g: Union[List[GraphObject], None], name: str):
+    def checktype(g: Union[list[GraphObject], None], name: str):
         """ check g: it must be a GraphObect or a list of GraphObjects """
         if g is None: return list()
         if not (type(g) == GraphObject or (type(g) == list and all(isinstance(x, GraphObject) for x in g))):
@@ -204,8 +205,8 @@ def normalize_graphs(gTr: Union[GraphObject, List[GraphObject]], gVa: Optional[U
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def MLP(input_dim: int, layers: List[int], activations, kernel_initializer, bias_initializer,
-        dropout_percs: Union[List[float], float, None] = None, dropout_pos: Optional[Union[List[int], int]] = None,
+def MLP(input_dim: int, layers: list[int], activations, kernel_initializer, bias_initializer,
+        dropout_percs: Union[list[float], float, None] = None, dropout_pos: Optional[Union[list[int], int]] = None,
         alphadropout: bool = False):
     """ Quick building function for MLP model. All lists must have the same length
     :param input_dim: (int) specify the input dimension for the model
@@ -247,7 +248,7 @@ def MLP(input_dim: int, layers: List[int], activations, kernel_initializer, bias
 
 # ---------------------------------------------------------------------------------------------------------------------
 def get_inout_dims(net_name: str, dim_node_label: int, dim_arc_label: int, dim_target: int, problem: str,
-                   dim_state: int, hidden_units: Union[None, int, List[int]]) -> Tuple[int, List[int]]:
+                   dim_state: int, hidden_units: Union[None, int, list[int]]) -> tuple[int, list[int]]:
     """ Calculate input and output dimension for the MLP of state and output
     :param g: (GraphObject) generic graph of the dataset calculations are based on
     :param problem: (str) s.t. len(problem)=3 [{'c','r'} | {'a','n','g'} | {'1','2'}]

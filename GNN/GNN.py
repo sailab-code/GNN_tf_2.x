@@ -1,4 +1,5 @@
 # coding=utf-8
+from __future__ import annotations
 import os
 import shutil
 
@@ -10,7 +11,7 @@ import GNN.GNN_metrics as mt
 import GNN.GNN_utils as utils
 from GNN.graph_class import GraphObject
 
-from typing import Optional, Union, Dict, List, Tuple
+from typing import Optional, Union
 pd.options.display.max_rows = 15
 
 
@@ -32,7 +33,7 @@ class GNN:
                  path_writer: str = 'writer/',
                  addressed_problem: str = 'c',
                  extra_metrics: Optional[dict] = None,
-                 metrics_arguments: Optional[Dict[str, dict]] = None,
+                 metrics_arguments: Optional[dict[str, dict]] = None,
                  state_vect_dim: int = 0) -> None:
         """ CONSTRUCTOR
         :param net_state: (tf.keras.model.Sequential) MLP for the state network, initialized externally
@@ -105,7 +106,7 @@ class GNN:
                               state_vect_dim=self.state_vect_dim)
 
     ## HISTORY METHODS ################################################################################################
-    def update_history(self, name: str, val: dict) -> None:
+    def update_history(self, name: str, val: dict[str, float]) -> None:
         """ update self.history with a dict s.t. val.keys()==self.history.keys()^{'Epoch','Best Loss Va'} """
         # name must be 'Tr' or 'Va', to update correctly training or validation history
         if name not in ['Tr', 'Va']: raise TypeError('param <name> must be \'Tr\' or \'Va\'')
@@ -166,7 +167,7 @@ class GNN:
         return tf.boolean_mask(state_converged, mask)
 
     # -----------------------------------------------------------------------------------------------------------------
-    def Loop(self, g: GraphObject, *, training: bool =False) -> Tuple[int, tf.Tensor, tf.Tensor]:
+    def Loop(self, g: GraphObject, *, training: bool =False) -> tuple[int, tf.Tensor, tf.Tensor]:
         """ process a single graph, returning iteration, states and output """
         # retrieve quantities from graph f
         nodes = tf.constant(g.getNodes(), dtype=tf.float32)
@@ -194,7 +195,7 @@ class GNN:
         return self.output_activation(out)
 
     ## EVALUATE METHODs ###############################################################################################
-    def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, List[float]]) -> tuple:
+    def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]]) -> tuple:
         """ evaluate method for evaluating one graph single graph. Returns iteration, loss, target and output """
         # get targets
         targs = tf.constant(g.getTargets(), dtype=tf.float32)
@@ -208,7 +209,7 @@ class GNN:
         return iter, loss, targs, self.output_activation(out)
 
     # -----------------------------------------------------------------------------------------------------------------
-    def evaluate(self, g: Union[GraphObject, List[GraphObject]], class_weights: Union[int, float, List[float]]) -> tuple:
+    def evaluate(self, g: Union[GraphObject, list[GraphObject]], class_weights: Union[int, float, list[float]]) -> tuple:
         """ return ALL the metrics in self.extra_metrics + Iter & Loss for a GraphObject or a list of GraphObjects
         :param g: element/list of GraphObject to be evaluated
         :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss
@@ -232,9 +233,9 @@ class GNN:
         return metr, metr['Loss'], y_true, y_pred, targets, y_score
 
     ## TRAINING METHOD ################################################################################################
-    def train(self, gTr: Union[GraphObject, List[GraphObject]], epochs: int = 10,
-              gVa: Union[GraphObject, List[GraphObject], None] = None, validation_freq: int = 10, max_fails: int = 10,
-              class_weights: Union[int, List[float]] = 1, *, mean: bool = False, verbose: int = 3) -> None:
+    def train(self, gTr: Union[GraphObject, list[GraphObject]], epochs: int = 10,
+              gVa: Union[GraphObject, list[GraphObject], None] = None, validation_freq: int = 10, max_fails: int = 10,
+              class_weights: Union[int, list[float]] = 1, *, mean: bool = False, verbose: int = 3) -> None:
         """ TRAIN PROCEDURE
         :param gTr: element/list of GraphObjects used for the learning procedure
         :param epochs: (int) the max number of epochs for the learning procedure
@@ -243,11 +244,11 @@ class GNN:
         :param max_fails: (int) specifies the max number of failures before early sopping
         :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss
         :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, else as the mean
-        :param verbose: (int) 0: silent mode; 1: print history; 2: print epochs/batches, 3: print history + epochs/batches
+        :param verbose: (int) 0: silent mode; 1: print history; 2:print epochs/batches, 3: history + epochs/batches
         """
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        def checktype(elem: Optional[Union[GraphObject, List[GraphObject]]]):
+        def checktype(elem: Optional[Union[GraphObject, list[GraphObject]]]):
             """ check if type(elem) is correct. If so, return None or a list og GraphObjects """
             if elem is None: return None
             if type(elem) == GraphObject: return [elem]
@@ -328,8 +329,8 @@ class GNN:
         self.write_net_weights(netO_writer, self.net_output.get_weights(), e, net_name='N2')
 
     ## TEST METHOD ####################################################################################################
-    def test(self, gTe: Union[GraphObject, List[GraphObject]], *, acc_classes: bool = True, rocdir: str = '',
-             micro_and_macro: bool = False, prisofsdir: str = '') -> Dict[str, List[float]]:
+    def test(self, gTe: Union[GraphObject, list[GraphObject]], *, acc_classes: bool = True, rocdir: str = '',
+             micro_and_macro: bool = False, prisofsdir: str = '') -> dict[str, list[float]]:
         """ TEST PROCEDURE
         :param gTe: element/list of GraphObjects for testing procedure
         :param accuracy_class: (bool) if True print accuracy for classes
@@ -354,10 +355,10 @@ class GNN:
         return metricsTe
 
     ## K-FOLD CROSS VALIDATION METHOD #################################################################################
-    def LKO(self, dataset: Union[List[GraphObject], List[List[GraphObject]]], node_aggregation: str,
+    def LKO(self, dataset: Union[list[GraphObject], list[list[GraphObject]]], node_aggregation: str,
             number_of_batches: int = 10, seed: Optional[float] = None, normalize_method: str = 'gTr', verbose: int = 3,
             acc_classes: bool = False, epochs: int = 500, useVa: bool = False, validation_freq: int = 10,
-            max_fails: int = 10, class_weights: Union[int, float, List[Union[float, int]]] = 1, mean: bool = False) -> Dict[str, List[float]]:
+            max_fails: int = 10, class_weights: Union[int, float, list[Union[float, int]]] = 1, mean: bool = False) -> dict[str, list[float]]:
         """ LEAVE K OUT PROCEDURE
         :param dataset: (list) of GraphObject OR (list) of lists of GraphObject on which <gnn> has to be valuated
                             > NOTE: for graph-based problem, if type(dataset) == list of GraphObject,
@@ -433,7 +434,7 @@ class GNN:
 
     # -----------------------------------------------------------------------------------------------------------------
     @staticmethod
-    def write_net_weights(writer: tf.summary.SummaryWriter, val_list: List[tf.Tensor], epoch: int, net_name: str) -> None:
+    def write_net_weights(writer: tf.summary.SummaryWriter, val_list: list[tf.Tensor], epoch: int, net_name: str) -> None:
         if net_name not in ['N1', 'N2']: raise ValueError('param net_name must be in [N1,N2]')
         weights, biases = val_list[0::2], val_list[1::2]
         length = len(weights)
@@ -446,7 +447,7 @@ class GNN:
 
     # -----------------------------------------------------------------------------------------------------------------
     @staticmethod
-    def write_vals(writer: tf.summary.SummaryWriter, metrics: Dict[str, float], epoch: int) -> None:
+    def write_vals(writer: tf.summary.SummaryWriter, metrics: dict[str, float], epoch: int) -> None:
         if type(metrics) != dict: raise TypeError('type of param <metrics> must be dict')
         names = {'Acc': 'Accuracy', 'Bacc': 'Balanced Accuracy', 'Ck': 'Cohen\'s Kappa', 'Js': 'Jaccard Score',
                  'Fs': 'F1-Score', 'Prec': 'Precision Score', 'Rec': 'Recall Score', 'Tpr': 'TPR', 'Tnr': 'TNR',
@@ -465,8 +466,8 @@ class GNN:
 ### CLASS GNN - GRAPH BASED ###########################################################################################
 #######################################################################################################################
 class GNNgraphBased(GNN):
-    def Loop(self, g :GraphObject, *, training: bool=False) -> Tuple[int, tf.Tensor, tf.Tensor]:
-        iter, state_nodes, out_nodes = GNN.Loop(self, g, training=training)
+    def Loop(self, g :GraphObject, *, training: bool=False) -> tuple[int, tf.Tensor, tf.Tensor]:
+        iter, state_nodes, out_nodes = super().Loop(g, training=training)
         # obtain a single output for each graph, by averaging the output of all of its nodes
         nodegraph = tf.constant(g.getNodeGraph(), dtype=tf.float32)
         out_gnn = tf.matmul(nodegraph, out_nodes, transpose_a=True)
