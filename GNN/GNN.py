@@ -195,13 +195,13 @@ class GNN:
         return self.output_activation(out)
 
     ## EVALUATE METHODs ###############################################################################################
-    def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]]) -> tuple:
+    def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]], training: bool) -> tuple:
         """ evaluate method for evaluating one graph single graph. Returns iteration, loss, target and output """
         # get targets
         targs = tf.constant(g.getTargets(), dtype=tf.float32)
         if g.problem_based != 'g': targs = targs[tf.logical_and(g.getSetMask(), g.getOutputMask())]
         # graph processing
-        iter, _, out = self.Loop(g, training=False)
+        iter, _, out = self.Loop(g, training=training)
         # weighted loss if class_metrics != 1, else it does not modify loss values
         loss_weight = tf.reduce_sum(class_weights * targs, axis=1)
         loss = self.loss_function(targs, out, **self.loss_args)
@@ -219,7 +219,7 @@ class GNN:
         if not (type(g) == GraphObject or (type(g) == list and all(isinstance(x, GraphObject) for x in g))):
             raise TypeError('type of param <g> must be GraphObject or list of GraphObjects')
         if type(g) == GraphObject: g = [g]
-        iters, losses, targets, outs = zip(*[self.evaluate_single_graph(i, class_weights) for i in g])
+        iters, losses, targets, outs = zip(*[self.evaluate_single_graph(i, class_weights, training=False) for i in g])
         # concatenate all the values from every graph and take clas labels or values
         loss = tf.concat(losses, axis=0)
         targets = tf.concat(targets, axis=0)
@@ -264,7 +264,7 @@ class GNN:
         def training_step(gTr: GraphObject, mean: bool):
             """ compute the gradients and apply them """
             with tf.GradientTape() as tape:
-                iter, loss, *_ = self.evaluate_single_graph(gTr, class_weights)
+                iter, loss, *_ = self.evaluate_single_graph(gTr, class_weights, training=True)
             dwbS, dwbO = tape.gradient(loss, [self.net_state.trainable_variables, self.net_output.trainable_variables])
             # average net_state dw and db w.r.t. the number of iteration.
             if mean: dwbS = [i / iter for i in dwbS]
