@@ -21,6 +21,8 @@ In Parallel Mode, GNN layers are trained simultaneously, by processing loss on t
 
 In Serial Mode, each GNN layer is trained as a standalone GNN model, therefore becoming an *expert* which solves the considered problem using the original data and the experience obtained from the previous GNN layer, so as to "correct" the errors made by the previous network, rather than solving the whole problem.
  
+To perform both lgnn training and testing, run:
+
     from starter import lgnn, gTr, gTe, gVa
     
     epochs = 200
@@ -38,7 +40,7 @@ In Serial Mode, each GNN layer is trained as a standalone GNN model, therefore b
         print('{}: \t{:.4g}'.format(i, res[i]))
 
 ### K-fold Cross Validation
-To perform a 10-fold cross validation on lgnn, simply run:
+To perform a 10-fold cross validation on lgnn, run:
 
     from starter import lgnn, graphs
     from numpy import mean
