@@ -1,4 +1,3 @@
-# coding=utf-8
 from __future__ import annotations
 from typing import Optional
 
@@ -106,7 +105,7 @@ class GraphObject:
     def getOutputMask(self):         return self.output_mask.copy()
     def getArcNode(self):            return self.ArcNode.copy()
     def getNodeGraph(self):          return self.NodeGraph.copy()
-    def initState(self, v: int = 0): return np.zeros((self.nodes.shape[0], v)) if v > 0 else self.nodes.copy()
+    #def initState(self, v: int = 0): return np.zeros((self.nodes.shape[0], v)) if v > 0 else self.nodes.copy()
 
     ## STATIC METHODS #################################################################################################
     @staticmethod
@@ -165,7 +164,8 @@ class GraphObject:
             raise TypeError('type of param <glist> must be list of GraphObjects')
         # check problem_based parameter for all the graphs. Take the lost(set of all problem type in glist).
         problem_based_set = list({i.problem_based for i in glist})
-        if len(problem_based_set) != 1 or problem_based_set[0] not in ['n', 'a', 'g']:
+        if problem_based_set == []: return None
+        elif len(problem_based_set) != 1 or problem_based_set[0] not in ['n', 'a', 'g']:
             raise ValueError('All graphs in <glist> must have the same <g.problem_based> parameter in [n,a,g]')
         # retrieve problem type and all the useful entities -> tuple
         problem_based = problem_based_set.pop()

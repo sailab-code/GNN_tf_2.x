@@ -1,5 +1,5 @@
-# coding=utf-8
 from __future__ import annotations
+
 from typing import Union, Optional
 
 import numpy as np
@@ -97,7 +97,8 @@ def progressbar(percent: float, width: int = 30) -> None:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def getindices(len_dataset: int, perc_Train: float = 0.7, perc_Valid: float = 0.1, seed=None) -> Union[tuple[list[int], list[int]], tuple[list[int], list[int], list[int]]]:
+def getindices(len_dataset: int, perc_Train: float = 0.7, perc_Valid: float = 0.1, seed=None) -> Union[
+    tuple[list[int], list[int]], tuple[list[int], list[int], list[int]]]:
     """ Divide the dataset into Train/Test or Train/Validation/Test
     :param len_dataset: length of the dataset
     :param perc_Train: (float) in [0,1]
@@ -121,7 +122,7 @@ def getindices(len_dataset: int, perc_Train: float = 0.7, perc_Valid: float = 0.
     valid_idx = idx[sampleTest:sampleTest + sampleValid]
     # train indices (usually the longest set)
     train_idx = idx[sampleTest + sampleValid:]
-    return (train_idx, valid_idx, test_idx) if valid_idx else (train_idx, test_idx)
+    return (train_idx, test_idx, valid_idx)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -247,24 +248,36 @@ def MLP(input_dim: int, layers: list[int], activations, kernel_initializer, bias
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def get_inout_dims(net_name: str, dim_node_label: int, dim_arc_label: int, dim_target: int, problem: str,
-                   dim_state: int, hidden_units: Union[None, int, list[int]]) -> tuple[int, list[int]]:
+def get_inout_dims(net_name: str, dim_node_label: int, dim_arc_label: int, dim_target: int, problem: str, dim_state: int,
+                   hidden_units: Union[None, int, list[int]],
+                   *, layer: int = 0, get_state: bool = False, get_output: bool = False) -> tuple[int, list[int]]:
     """ Calculate input and output dimension for the MLP of state and output
     :param g: (GraphObject) generic graph of the dataset calculations are based on
     :param problem: (str) s.t. len(problem)=3 [{'c','r'} | {'a','n','g'} | {'1','2'}]
     :param net_name: (str) in ['state','output']
     :param dim_state: (int)>=0 for state dimension paramenter of the gnn
     :param hidden_units: (int or list of int) for specifying units on hidden layers
+    :param layer: (int) LGNN USE: get the dims at gnn of the layer <layer>, from graph dims on layer 0. Default is 0, since GNN==LGNN in this case
+    :param get_state: (bool) LGNN USE: set accordingly to LGNN behaviour, if gnns get state, output or both from previous layer
+    :param get_output: (bool) LGNN USE: set accordingly to LGNN behaviour, if gnns get state, output or both from previous layer
     """
     assert net_name in ['state', 'output']
+    assert layer >= 0
     if len(problem) == 1: problem += '1'
+    DS = dim_state
+    NL, AL, T = dim_node_label, dim_arc_label, dim_target
+    # if LGNN, get MLPs layers for gnn in layer 2+
+    if layer > 0:
+        GS, GO, P = get_state, get_output, problem[0]  # problem without [0], PROVA NICCO
+        if DS != 0: NL, AL = NL + DS * GS + T * (P != 'a') * GO, AL + T * (P == 'a') * GO
+        else: NL, AL = NL + layer * NL * GS + ((layer - 1) * GS + 1) * T * (P != 'a') * GO, AL + T * (P == 'a') * GO
     if net_name == 'output':
-        input_shape = (problem[0] == 'a') * (dim_node_label + dim_arc_label + dim_state) + dim_node_label + dim_state
-        output_shape = dim_target
+        input_shape = (problem[0] == 'a') * (NL + AL + DS) + NL + dim_state
+        output_shape = T
     else:
-        input_shape = dim_arc_label + 2 * dim_node_label + dim_state * (1 + (problem[1] == '1'))
-        input_shape += dim_node_label * (dim_state == 0) * (problem[1] == '2')
-        output_shape = dim_state if dim_state else dim_node_label
+        input_shape = AL + 2 * NL + DS * (1 + (problem[1] == '1'))
+        input_shape += NL * (DS == 0) * (problem[1] == '2')
+        output_shape = DS if DS else NL
     # hidden part
     if hidden_units is None or type(hidden_units) == int and hidden_units <= 0: hidden_units = []
     if type(hidden_units) == list: layers = hidden_units + [output_shape]
