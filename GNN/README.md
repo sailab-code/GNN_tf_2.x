@@ -13,6 +13,7 @@ In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solv
 
 
 ### Single model training and testing
+To perform both gnn training and testing, run:
 
     from starter import gnn, gTr, gTe, gVa
     
@@ -30,7 +31,7 @@ In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solv
 
 
 ### K-fold Cross Validation
-To perform a 10-fold cross validation on gnn, simply run:
+To perform a 10-fold cross validation on gnn, run:
 
     from starter import gnn, graphs
     from numpy import mean
@@ -57,7 +58,7 @@ The following image details the GNN model as it is implemented in `GNN / GNN.py`
 
 
 ## Citing
-To cite the GNN implementations please use the following publication:
+To cite the GNN implementation please use the following publication:
 
     Pancino, N., Rossi, A., Ciano, G., Giacomini, G., Bonechi, S., Andreini, P., Scarselli, F., Bianchini, M., Bongini, P. (2020),
     "Graph Neural Networks for the Prediction of Protein–Protein Interfaces",
