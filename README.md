@@ -13,18 +13,51 @@ To install the requirements you can use the following command:
 
 
 ## Simple usage example
-To train and test a GNN, simply run [starter.py](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/starter.py):
+In the following scripts, GNN is trained by default to solve a binary node-focused classification task on graphs with random nodes/edges/targets.
 
-    import starter
+Open the script `starter_gnn` and set parameters in section *SCRIPT OPTIONS* to change dataset and/or GNN architecture and learning behaviour.
 
-Open the script and set parameters in section *SCRIPT OPTIONS* to change script behaviour, then run it. 
+In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solving a graph-based problem ([details](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/MUTAG_raw/Mutagenicity_label_readme.txt))
 
-By default both GNN training and GNN testing are performed.
-
-In particular, `use_MUTAG = False` means that the GNN is trained on a dataset composed of graphs with random nodes/edges/targets.
-Set `use_MUTAG = True` to train the GNN on the real-world dataset MUTAG for solving a graph-based problem ([details](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/MUTAG_raw/Mutagenicity_label_readme.txt))
+### Single model training and testing
 
 
+    from starter_gnn import gnn, gTr, gTe, gVa
+    
+    epochs = 200
+    
+    # training
+    gnn.train(gTr, epochs, gVa)
+    
+    # test the lgnn
+    res = gnn.test(gTe)
+
+    # print test result
+    for i in res:  
+        print('{}: \t{:.4g}'.format(i, res[i]))
+
+
+### K-fold Cross Validation
+To perform a 10-fold cross validation on gnn, simply run:
+
+    from starter_gnn import gnn, graphs
+    from numpy import mean
+    
+    epochs = 200
+    
+    # LKO: as mentioned, arg serial_training affects LGNN training process
+    lko_res = gnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
+    
+    # print test result
+    for i in lko_res: 
+        for i in m: print('{}: \t{:.4f} \t{}'.format(i, mean(lko_res[i]), lko_res[i]))
+
+
+### TensorBoard
+To visualize learning progress, use TensorBoard --logdir command providing the log directory. Default it's `writer`.
+
+    ...\projectfolder> tensorboard --logdir writer
+    
 ### GNN implementation flow chart
 The following image details the GNN model as it is implemented in `GNN / GNN.py`.
 ![GNN Convergence Loop](GNN/GNN_flow_chart.png)
