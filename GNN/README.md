@@ -6,9 +6,9 @@ This repo contains a Tensorflow 2.x implementations of the Graph Neural Network 
 
 
 ## Simple usage example
-In the following scripts, gnn is a GNN trained by default to solve a binary node-focused classification task on graphs with random nodes/edges/targets.
+In the following scripts, gnn is a by default a binary classifier for node-focused task on graphs with random nodes/edges/targets.
 
-Open the script `starter_gnn` and set parameters in section *SCRIPT OPTIONS* to change dataset and/or GNN/LGNN models architectures and learning behaviour.
+Open the script `starter_gnn` and set parameters in section *SCRIPT OPTIONS* to change dataset and/or GNN models architecture and learning behaviour.
 
 In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solving a graph-based problem ([details](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/MUTAG_raw/Mutagenicity_label_readme.txt))
 
@@ -33,13 +33,13 @@ In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solv
 ### K-fold Cross Validation
 To perform a 10-fold cross validation on gnn, simply run:
 
-    from starter_gnn import gnn, graphs
+    from starter import gnn, graphs
     from numpy import mean
     
     epochs = 200
     
     # LKO
-    lko_res = gnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
+    lko_res = gnn.LKO(graphs, 10, epochs=epochs)
     
     # print test result
     for i in lko_res: 
