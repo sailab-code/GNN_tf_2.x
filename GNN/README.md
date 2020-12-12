@@ -7,7 +7,7 @@ This repo contains a Tensorflow 2.x implementations of the Graph Neural Network 
 ## Simple usage example
 In the following scripts, gnn is a by default a binary classifier for node-focused task on graphs with random nodes/edges/targets.
 
-Open the script `starter_gnn` and set parameters in section *SCRIPT OPTIONS* to change dataset and/or GNN models architecture and learning behaviour.
+Open the script `starter` and set parameters in section *SCRIPT OPTIONS* to change dataset and/or GNN models architecture and learning behaviour.
 
 In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solving a graph-based problem ([details](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/MUTAG_raw/Mutagenicity_label_readme.txt))
 
