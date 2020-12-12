@@ -1,4 +1,4 @@
-# LGNN - Layered Graph Neural Network Models
+# LGNN - Layered Graph Neural Network Model
 This repo contains a Tensorflow 2.x implementations of the Layered Graph Neural Network (LGNN) Model.
 
 **Author:** [Niccolò Pancino](http://sailab.diism.unisi.it/people/niccolo-pancino/)
