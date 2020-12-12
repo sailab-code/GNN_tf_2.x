@@ -10,7 +10,7 @@ setuptools.setup(
     author_email="niccolo.pancino@unifi.it",
     description="Graph Neural Network Tensorflow 2.x implementation",
     long_description=long_description,
-    url="https://github.com/NickDrake117/GNN_tf_2.x",
+    url="https://github.com/NickDrake117/GNN_tf_2.x/gnn2",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
