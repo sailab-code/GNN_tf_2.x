@@ -1,5 +1,5 @@
-# GNN + LGNN - (Layered) Graph Neural Network Model
-This repo contains a Tensorflow 2.x implementations of the Graph Neural Network (GNN) and Layered Graph Neural Network (LGNN) Models.
+# GNN & LGNN - (Layered) Graph Neural Network Models
+This repo contains Tensorflow 2.x implementations of the Graph Neural Network (GNN) and Layered Graph Neural Network (LGNN) Models.
 
 **Authors**
 - **GNN:** [Niccolò Pancino](http://sailab.diism.unisi.it/people/niccolo-pancino/), [Pietro Bongini](http://sailab.diism.unisi.it/people/pietro-bongini/)
@@ -15,7 +15,7 @@ To install the requirements you can use the following command:
     pip install -U -r requirements.txt
 
 
-## Simple usage example
+## Simple usage examples
 In the following scripts, gnn is a GNN trained by default to solve a binary node-focused classification task on graphs with random nodes/edges/targets, while lgnn is a 5-layered GNN.
 
 Open the script `starter` and set parameters in section *SCRIPT OPTIONS* to change dataset and/or GNN/LGNN models architectures and learning behaviour.
@@ -24,7 +24,7 @@ In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solv
 
 Note that a single layered LGNN behaves exaclty like a GNN, as it is composed of a single GNN.
 
-### GNNs 
+### GNN
 #### Single model training and testing
 To perform both gnn training and gnn testing, run:
 
@@ -42,7 +42,8 @@ To perform both gnn training and gnn testing, run:
     for i in res:  
         print('{}: \t{:.4g}'.format(i, res[i]))
 
-#### K-fold Cross Validation
+
+#### K-fold cross validation
 To perform a 10-fold cross validation on gnn, simply run:
 
     from starter import gnn, graphs
