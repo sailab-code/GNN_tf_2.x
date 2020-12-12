@@ -60,7 +60,7 @@ To visualize learning progress, use TensorBoard --logdir command providing the l
 
 
 ## Citing
-To cite the LGNN implementations please use the following publication:
+To cite the LGNN implementation please use the following publication:
 
     Pancino, N., Rossi, A., Ciano, G., Giacomini, G., Bonechi, S., Andreini, P., Scarselli, F., Bianchini, M., Bongini, P. (2020),
     "Graph Neural Networks for the Prediction of Protein–Protein Interfaces",
