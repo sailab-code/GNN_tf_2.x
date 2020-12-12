@@ -190,3 +190,4 @@ lgnn = LGNN(gnns=gnns,
             extra_metrics_arguments=metrics_args,
             path_writer=path_writer,
             namespace='LGNN')
+
