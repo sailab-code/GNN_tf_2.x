@@ -28,22 +28,29 @@ class GraphObject:
         self.arcs = arcs
         self.nodes = nodes
         self.targets = targets
+
         # store dimensions
         self.DIM_NODE_LABEL = nodes.shape[1]  # first column contains node indices
         self.DIM_ARC_LABEL = arcs.shape[1] - 2  # first two columns contain nodes indices
         self.DIM_TARGET = targets.shape[1]
+
         # setting the problem type: node, arcs or graph based + check existence of passed parameters in keys
         lenMask = {'n': nodes.shape[0], 'a': arcs.shape[0], 'g': nodes.shape[0]}
         self.problem_based = problem_based
+
         # build set_mask, for a dataset composed of only a single graph: its nodes have to be divided in Tr, Va and Te
         self.set_mask = np.ones(lenMask[self.problem_based]) if set_mask is None else set_mask
+
         # build output_mask
         self.output_mask = np.ones(len(self.set_mask)) if output_mask is None else output_mask
+
         # check lengths: output_mask must be as long as set_mask
         if len(self.set_mask) != len(self.output_mask):
             raise ValueError('Error - len(<set_mask>) != len(<output_mask>)')
+
         # build node_graph conversion matrix
         self.NodeGraph = self.buildNodeGraph() if NodeGraph is None else NodeGraph
+
         # build ArcNode tensor or acquire it from input
         self.ArcNode = self.buildArcNode(node_aggregation=node_aggregation) if ArcNode is None else ArcNode
 
