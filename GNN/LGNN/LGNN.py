@@ -55,7 +55,6 @@ class LGNN(BaseGNN):
                               namespace=namespace if namespace else 'LGNN')
 
 
-
     ## GETTERS AND SETTERS METHODs ####################################################################################
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:
         return [i.net_state.trainable_variables for i in self.gnns], [i.net_output.trainable_variables for i in self.gnns]
@@ -79,42 +78,49 @@ class LGNN(BaseGNN):
 
 
     ## EVALUATE METHODs ###############################################################################################
-    def update_labels(self, g: GraphObject, state: Union[tf.Tensor, array], output: Union[tf.Tensor, array]):
-        if self.get_state and self.get_output and g.problem_based != 'a': nodeplus, arcplus = tf.concat([state, output], axis=1), None
-        elif self.get_state and self.get_output and g.problem_based == 'a': nodeplus, arcplus = state, output
-        elif self.get_state: nodeplus, arcplus = state, None
-        elif self.get_output and g.problem_based != 'a': nodeplus, arcplus = output, None
-        else: nodeplus, arcplus = None, output
+    def update_labels(self, g: GraphObject, state: Union[tf.Tensor, array], output: Union[tf.Tensor, array]) \
+            -> tuple[Optional[tf.Tensor], Optional[tf.Tensor]]:
+        arcplus, nodeplus = None, None
+        # check state
+        if self.get_state: nodeplus = state
+        # check output
+        if self.get_output and g.problem_based !='a' and nodeplus is None: nodeplus = output
+        elif self.get_output and g.problem_based !='a': nodeplus = tf.concat([nodeplus, output], axis=1)
+        elif self.get_output: arcplus = output
         return nodeplus, arcplus
 
 
     ## LOOP METHODS ###################################################################################################
     def Loop(self, g: GraphObject, *, nodeplus=None, arcplus=None, training: bool = False) -> tuple[list[int], tf.Tensor, tf.Tensor]:
         # graph processing
-        K, nodeplus, arcplus = list(), None, None
+        K, outs, nodeplus, arcplus = list(), list(), None, None
         for idx, gnn in enumerate(self.gnns[:-1]):
-            if g.problem_based != 'g': k, state, out = gnn.Loop(g, nodeplus=nodeplus, arcplus=arcplus, training=training)
-            else: k, state, out = super(GNNgraphBased, gnn).Loop(g, nodeplus=nodeplus, arcplus=arcplus, training=training)
-            nodeplus, arcplus = self.update_labels(g, state, out)
+            if type(gnn)==GNNgraphBased:
+                k, state, out = super(GNNgraphBased, gnn).Loop(g, nodeplus=nodeplus, arcplus=arcplus, training=training)
+                nodegraph = tf.constant(g.getNodeGraph(), dtype=tf.float32)
+                outs.append(tf.matmul(nodegraph, out, transpose_a=True))
+            else:
+                k, state, out = gnn.Loop(g, nodeplus=nodeplus, arcplus=arcplus, training=training)
+                outs.append(out)
             K.append(k)
+            nodeplus, arcplus = self.update_labels(g, state, out)
         k, state, out = self.gnns[-1].Loop(g, nodeplus=nodeplus, arcplus=arcplus, training=training)
-        return K + [k], state, out
-
+        return K + [k], state, tf.reduce_mean(outs + [out], axis=0)
 
     ## TRAINING METHOD ################################################################################################
-    def train(self, gTr: Union[GraphObject, list[GraphObject]], epochs: int = 10, gVa: Union[GraphObject, list[GraphObject], None] = None,
+    def train(self, gTr: Union[GraphObject, list[GraphObject]], epochs: int, gVa: Union[GraphObject, list[GraphObject], None] = None,
               update_freq: int = 10, max_fails: int = 10, class_weights: Union[int, list[float]] = 1,
               *, mean: bool = True, serial_training=False, verbose: int = 3) -> None:
         """ TRAIN PROCEDURE
-        :param gTr: element/list of GraphObjects used for the learning procedure
+        :param gTr: GraphObject or list of GraphObjects used for the learning procedure
         :param epochs: (int) the max number of epochs for the learning procedure
-        :param gVa: element/list of GraphsObjects for early stopping
-        :param update_freq: (int) specifies how many epochs must be completed before evaluating gVa and gTr
-        :param max_fails: (int) specifies the max number of failures before early sopping
-        :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss
-        :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, else as the mean
-        :param one_gnn_at_a_time: (bool). True: each GNN is trained separately. False: GNNs are trained all together (loss from LGNN's output)
-        :param verbose: (int) 0: silent mode; 1: print history; 2:print epochs/batches, 3: history + epochs/batches
+        :param gVa: element/list of GraphsObjects for early stopping. Default None, no early stopping performed
+        :param update_freq: (int) how many epochs must be completed before evaluating gVa and gTr and/or print learning progress. Default 10.
+        :param max_fails: (int) specifies the max number of failures before early sopping. Default 10.
+        :param class_weights: (list) [w0, w1,...,wc] in classification task when targets are 1-hot, specify the weight for weighted loss. Default 1.
+        :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, otherwise as the mean. Default True.
+        :param serial_training: (bool) True: GNNs trained separately, otherwise trained all together (loss from LGNN's output). Default False.
+        :param verbose: (int) 0: silent mode; 1: print history; 2: print epochs/batches, 3: history + epochs/batches. Default 3.
         :return: None
         """
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -128,15 +134,15 @@ class LGNN(BaseGNN):
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         def update_graph(g: GraphObject, state: Union[tf.Tensor, array], output: Union[tf.Tensor, array]) -> GraphObject:
-            from numpy import concatenate
-            g, state, output = g.copy(), state.numpy(), output.numpy()
-            if self.get_state: g.nodes = concatenate([g.nodes, state], axis=1)
-            if self.get_output and g.problem_based != 'a': g.nodes = concatenate([g.nodes, output], axis=1)
-            if self.get_output and g.problem_based == 'a': g.arcs = concatenate([g.arcs, output], axis=1)
+            g = g.copy()
+            nodeplus, arcplus = self.update_labels(g, state, output)
+            if nodeplus is not None: g.nodes = concatenate([g.nodes, nodeplus.numpy()], axis=1)
+            if arcplus is not None: g.arcs = concatenate([g.arcs, arcplus.numpy()], axis=1)
             return g
 
         ### TRAINING FUNCTION -----------------------------------------------------------------------------------------
         if serial_training:
+            from numpy import concatenate
             gTr, gVa = checktype(gTr), checktype(gVa)
             gTr1, gVa1 = [i.copy() for i in gTr], [i.copy() for i in gVa] if gVa else None
             for idx, gnn in enumerate(self.gnns):
