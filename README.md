@@ -40,18 +40,18 @@ To perform models training and testing, run:
     # GNN training
     gnn.train(gTr, epochs, gVa)
     
-    # test the GNN
+    # GNN test
     res = gnn.test(gTe)
     
     
     # LGNN training in parallel mode
-    # gnn.train(gTr, epochs, gVa)
+    # lgnn.train(gTr, epochs, gVa)
     
     # LGNN training in serial mode
-    # gnn.train(gTr, epochs, gVa, serial_training=True)
+    # lgnn.train(gTr, epochs, gVa, serial_training=True)
     
-    # test the LGNN
-    # res = gnn.test(gTe)
+    # LGNN test
+    # res = lgnn.test(gTe)
     
 
     # print test result
@@ -69,11 +69,12 @@ To perform a 10-fold cross validation on gnn, simply run:
     
     epochs = 200
     
-    # LKO
+    # GNN LKO
     lko_res = gnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
     
     
-    # LKO: as mentioned, arg serial_training affects LGNN training process
+    # LGNN LKO: as mentioned, arg serial_training affects LGNN learning process
+    # lko_res = lgnn.LKO(graphs, 10, epochs=epochs)
     # lko_res = lgnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
     
     
@@ -82,6 +83,7 @@ To perform a 10-fold cross validation on gnn, simply run:
         for i in m: print('{}: \t{:.4f} \t{}'.format(i, mean(lko_res[i]), lko_res[i]))
 
 NOTE: uncomment lgnn lines to perform LKO on lgnn model
+
 
 ### GNN implementation flow chart
 The following image details the GNN model as it is implemented in `GNN / GNN.py`.
