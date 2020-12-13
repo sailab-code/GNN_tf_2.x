@@ -35,23 +35,18 @@ class LGNN(BaseGNN):
         self.gnns = gnns
         self.layers = len(gnns)
         self.namespace = ['{} - GNN{}'.format(namespace, i) for i in range(self.layers)]
-        # Change namespace for GNNs inside LGNN
+
+        # Change namespace for self.gnns
         for gnn, name in zip(self.gnns, self.namespace):
             gnn.namespace = [name]
             gnn.path_writer = self.path_writer + name + '/'
 
     # -----------------------------------------------------------------------------------------------------------------
     def copy(self, *, path_writer: str = '', namespace: str = '', copy_weights: bool = True) -> 'LGNN':
-        return self.__class__(gnns=[i.copy(copy_weights=copy_weights) for i in self.gnns],
-                              get_state=self.get_state,
-                              get_output=self.get_output,
-                              optimizer=self.optimizer.__class__(**self.optimizer.get_config()),
-                              loss_function=self.loss_function,
-                              loss_arguments=self.loss_args,
-                              addressed_problem=self.addressed_problem,
-                              extra_metrics=self.extra_metrics,
-                              extra_metrics_arguments=self.mt_args,
-                              path_writer=path_writer if path_writer else self.path_writer + '_copied/',
+        return self.__class__(gnns=[i.copy(copy_weights=copy_weights) for i in self.gnns], get_state=self.get_state, get_output=self.get_output,
+                              optimizer=self.optimizer.__class__(**self.optimizer.get_config()), loss_function=self.loss_function,
+                              loss_arguments=self.loss_args, addressed_problem=self.addressed_problem, extra_metrics=self.extra_metrics,
+                              extra_metrics_arguments=self.mt_args, path_writer=path_writer if path_writer else self.path_writer + '_copied/',
                               namespace=namespace if namespace else 'LGNN')
 
 
@@ -107,6 +102,7 @@ class LGNN(BaseGNN):
         k, state, out = self.gnns[-1].Loop(g, nodeplus=nodeplus, arcplus=arcplus, training=training)
         return K + [k], state, tf.reduce_mean(outs + [out], axis=0)
 
+
     ## TRAINING METHOD ################################################################################################
     def train(self, gTr: Union[GraphObject, list[GraphObject]], epochs: int, gVa: Union[GraphObject, list[GraphObject], None] = None,
               update_freq: int = 10, max_fails: int = 10, class_weights: Union[int, list[float]] = 1,
@@ -140,19 +136,24 @@ class LGNN(BaseGNN):
             if arcplus is not None: g.arcs = concatenate([g.arcs, arcplus.numpy()], axis=1)
             return g
 
+
         ### TRAINING FUNCTION -----------------------------------------------------------------------------------------
         if serial_training:
             from numpy import concatenate
             gTr, gVa = checktype(gTr), checktype(gVa)
             gTr1, gVa1 = [i.copy() for i in gTr], [i.copy() for i in gVa] if gVa else None
+            
             for idx, gnn in enumerate(self.gnns):
                 if verbose in [1,3]: print('\n\n------------------- GNN{} -------------------\n'.format(idx))
+                
                 # train the idx-th gnn
                 gnn.train(gTr1, epochs, gVa1, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)
+                
                 # extrapolate state and output to update labels
                 _, sTr, oTr = zip(*[gnn.Loop(i) if i.problem_based != 'g' else super(GNNgraphBased, gnn).Loop(i) for i in gTr1])
                 gTr1 = [update_graph(i, s, o) for i, s, o in zip(gTr, sTr, oTr)]
                 if gVa:
                     _, sVa, oVa = zip(*[gnn.Loop(i) if i.problem_based != 'g' else super(GNNgraphBased, gnn).Loop(i) for i in gVa1])
                     gVa1 = [update_graph(i, s, o) for i, s, o in zip(gVa, sVa, oVa)]
+        
         else: super().train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)
