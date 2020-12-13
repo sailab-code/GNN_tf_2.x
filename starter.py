@@ -31,11 +31,12 @@ use_MUTAG: bool = False
 # Node and edge labels are initialized randomly. Target clusters are given by sklearn.
 # Each graph has at least <min_nodes_number> nodes and at most <max_nodes_number> nodes
 # Possible <node_aggregation> for matrix ArcNoe belonging to graphs in ['average', 'normalized', 'sum']
-# Possible <problem_type> (str) s.t. len(problem_tye) in[2,3]: 'outputModel + problemAddressed + typeGNNTobeUsed'.
+# Possible <problem_type> (str) s.t. len(problem_tye) in [2,3]: 'outputModel + problemAddressed + typeGNNTobeUsed'.
+# problem_type in ['cn', 'cn1', 'cn2', 'rn', 'rn1', 'rn2', 'ca', 'ca1', 'ra', 'ra1', 'cg', 'cg1', 'rg', 'rg1']
 # > ['c' classification, 'r' regression] + ['g' graph-based; 'n' node-based; 'a' arc-based;] +[('','1') GNN1, '2' GNN2]
-# > Example: 'cn' or 'cn1': node-based classification with GNN; 'ra2' arc-based regression with GNN2 (Rossi-Tiezzi)
-problem_type        : str   = 'cn1'
-graphs_number       : int   = 100
+# > Example: 'ca' or 'ca1': arc-based classification with GNN; 'rn2' node-based regression with GNN2 (Rossi-Tiezzi)
+problem_type        : str   = 'cg'
+graphs_number       : int   = 50
 min_nodes_number    : int   = 15
 max_nodes_number    : int   = 40
 dim_node_label      : int   = 5
@@ -76,8 +77,8 @@ state_threshold : float = 0.01
 output_f        : Optional[tf.function] = tf.keras.activations.softmax
 
 # LGNN PARAMETERS
-layers          : int   = 5
-get_state       : bool  = True
+layers          : int   = 3
+get_state       : bool  = False
 get_output      : bool  = True
 path_writer     : str                   = 'writer/'
 optimizer       : tf.keras.optimizers   = tf.optimizers.Adam(learning_rate=0.001)
@@ -190,4 +191,3 @@ lgnn = LGNN(gnns=gnns,
             extra_metrics_arguments=metrics_args,
             path_writer=path_writer,
             namespace='LGNN')
-

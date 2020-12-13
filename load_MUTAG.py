@@ -16,12 +16,15 @@ idx = np.concatenate([idx, [len(gIDs_nodes)]])
 idx = idx.tolist()
 
 # NODES
+print('Nodes', end='\t')
 # encode labels in 1-hot vectors
 nL = np.zeros((nodesL.shape[0], len(np.unique(nodesL))), dtype=int)
 nL[range(nL.shape[0]), nodesL] = 1
 nodes = [nL[i:j, :] for i, j in zip(idx[:-1], idx[1:])]
+print('OK')
 
 # EDGES
+print('Edges', end='\t')
 edgesIDs = np.unique(edgesIDs, axis=0)
 # check edge membership in each graph
 eids = [k[:, 0] * k[:, 1] for k in [(edgesIDs > i) * (edgesIDs <= j) for i, j in zip(idx[:-1], idx[1:])]]
@@ -36,11 +39,14 @@ eL = np.zeros((edgesL.shape[0], len(np.unique(edgesL))), dtype=int)
 eL[range(eL.shape[0]), edgesL] = 1
 # concatenate [id1, id2, label]
 edges = [np.concatenate([eIDs[i], eL[eids[i]]], axis=1) for i in range(len(eIDs))]
+print('OK')
 
 # TARGETS
+print('Targets', end='\t')
 # encode labels in 1-hot vectors
 targs = np.zeros((len(gtargs), len(np.unique(gtargs))), dtype=int)
 targs[range(len(targs)), gtargs] = 1
+print('OK')
 
 # CREATE GRAPHS
 graphs = [GraphObject(arcs=i, nodes=j, targets=k[np.newaxis, ...], problem_based='g') for i, j, k in zip(edges, nodes, targs)]
