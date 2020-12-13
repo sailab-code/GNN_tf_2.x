@@ -24,29 +24,47 @@ In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solv
 
 Note that a single layered LGNN behaves exaclty like a GNN, as it is composed of a single GNN.
 
-### GNN
-#### Single model training and testing
-To perform both gnn training and gnn testing, run:
+### Single model training and testing
+LGNN can be trained both in parallel or serial mode, by setting `serial_training` argument when calling `LGNN.train()`. Default is `False`.
 
-    from starter import gnn, gTr, gTe, gVa
+In Parallel Mode, GNN layers are trained simultaneously, by processing loss on the LGNN output (i.e. the final GNN layer output), and backpropagating the error throughout the GNN layers.
+
+In Serial Mode, each GNN layer is trained as a standalone GNN model, therefore becoming an *expert* which solves the considered problem using the original data and the experience obtained from the previous GNN layer, so as to "correct" the errors made by the previous network, rather than solving the whole problem.
+
+To perform models training and testing, run:
+
+    from starter import gnn, lgnn, gTr, gTe, gVa
     
     epochs = 200
     
-    # training
+    # GNN training
     gnn.train(gTr, epochs, gVa)
     
-    # test the gnn
+    # test the GNN
     res = gnn.test(gTe)
+    
+    
+    # LGNN training in parallel mode
+    # gnn.train(gTr, epochs, gVa)
+    
+    # LGNN training in serial mode
+    # gnn.train(gTr, epochs, gVa, serial_training=True)
+    
+    # test the LGNN
+    # res = gnn.test(gTe)
+    
 
     # print test result
     for i in res:  
         print('{}: \t{:.4g}'.format(i, res[i]))
 
+NOTE: uncomment lgnn lines to train/test lgnn model
 
-#### K-fold cross validation
+
+### K-fold cross validation
 To perform a 10-fold cross validation on gnn, simply run:
 
-    from starter import gnn, graphs
+    from starter import gnn, lgnn, graphs
     from numpy import mean
     
     epochs = 200
@@ -54,55 +72,20 @@ To perform a 10-fold cross validation on gnn, simply run:
     # LKO
     lko_res = gnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
     
+    
+    # LKO: as mentioned, arg serial_training affects LGNN training process
+    # lko_res = lgnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
+    
+    
     # print test result
     for i in lko_res: 
         for i in m: print('{}: \t{:.4f} \t{}'.format(i, mean(lko_res[i]), lko_res[i]))
 
+NOTE: uncomment lgnn lines to perform LKO on lgnn model
 
 ### GNN implementation flow chart
 The following image details the GNN model as it is implemented in `GNN / GNN.py`.
 ![GNN Convergence Loop](GNN/GNN_flow_chart.png)
-
-
-### LGNN
-#### Single model training and testing
-LGNN can be trained both in parallel or serial mode, by setting `serial_training` argument when calling `LGNN.train()`. Default is `False`.
-
-In Parallel Mode, GNN layers are trained simultaneously, by processing loss on the LGNN output (i.e. the final GNN layer output), and backpropagating the error throughout the GNN layers.
-
-In Serial Mode, each GNN layer is trained as a standalone GNN model, therefore becoming an *expert* which solves the considered problem using the original data and the experience obtained from the previous GNN layer, so as to "correct" the errors made by the previous network, rather than solving the whole problem.
- 
-    from starter import lgnn, gTr, gTe, gVa
-    
-    epochs = 200
-    
-    # training in parallel mode
-    gnn.train(gTr, epochs, gVa)
-    
-    # training in serial mode
-    # gnn.train(gTr, epochs, gVa, serial_training=True)
-    # test the lgnn
-    res = gnn.test(gTe)
-
-    # print test result
-    for i in res:  
-        print('{}: \t{:.4g}'.format(i, res[i]))
-
-
-#### K-fold Cross Validation
-To perform a 10-fold cross validation on lgnn, simply run:
-
-    from starter import lgnn, graphs
-    from numpy import mean
-    
-    epochs = 200
-    
-    # LKO: as mentioned, arg serial_training affects LGNN training process
-    lko_res = gnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
-    
-    # print test result
-    for i in lko_res: 
-        for i in m: print('{}: \t{:.4f} \t{}'.format(i, mean(lko_res[i]), lko_res[i]))
 
 
 ### TensorBoard
