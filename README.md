@@ -86,7 +86,7 @@ NOTE: uncomment lgnn lines to perform LKO on lgnn model
 
 
 ### GNN implementation flow chart
-The following image details the GNN model as it is implemented in `GNN / GNN.py`.
+The following image details the GNN model as it is implemented in `GNN/GNN.py`.
 ![GNN Convergence Loop](GNN/GNN_flow_chart.png)
 
 
