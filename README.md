@@ -14,8 +14,8 @@ To install the requirements you can use the following command:
 
     pip install -U -r requirements.txt
 
-### install from folder
-Download this folder and open terminal in its location, then use the following command:
+### Install from folder
+Download this folder and open a terminal in its location, then use the following command:
     
     python setup.py install
 
