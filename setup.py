@@ -5,10 +5,10 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="gnn2",
-    version="1.0",
+    version="1.2",
     author="Niccolo' Pancino, Pietro Bongini",
     author_email="niccolo.pancino@unifi.it",
-    description="Graph Neural Network Tensorflow 2.x implementation",
+    description="Graph Neural Network and Layered Graph Neural Network Tensorflow 2.x implementation",
     long_description=long_description,
     url="https://github.com/NickDrake117/GNN_tf_2.x/",
     packages=setuptools.find_packages(),
