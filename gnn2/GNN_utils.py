@@ -29,6 +29,7 @@ def randomGraph(nodes_number: int, dim_node_label: int, dim_arc_label: int, dim_
     # NODES
     nodes_ids = range(nodes_number)
     nodes = 2 * np.random.random((nodes_number, dim_node_label)) - 1
+
     # ARCS
     arcs_number = round(density * nodes_number * (nodes_number - 1) / 2)
     sources = np.random.choice(nodes_ids[:-1], arcs_number // 2)
@@ -48,6 +49,7 @@ def randomGraph(nodes_number: int, dim_node_label: int, dim_arc_label: int, dim_
     arcs_label = np.concatenate((arcs_label, arcs_label))
     arcs = np.concatenate((arcs_ids, arcs_label), axis=1)
     arcs = np.unique(arcs, axis=0)
+
     # TARGETS - 1-HOT
     tn = {'n': nodes.shape[0], 'a': arcs.shape[0], 'g': 1}
     assert problem_based in tn.keys()
@@ -60,12 +62,15 @@ def randomGraph(nodes_number: int, dim_node_label: int, dim_arc_label: int, dim_
         i = range(target_number)
         targs[i, j.labels_] = 1
     else: targs[0, np.random.choice(range(targs.shape[1]))] = 1
+
     # OUTPUT MASK
     output_mask = np.ones(arcs.shape[0] if problem_based == 'a' else nodes.shape[0])
+
     # NORMALIZE FEATURES
     if normalize_features:
         nodes = nodes / np.max(nodes, axis=0)
         arcs[:, 2:] = arcs[:, 2:] / np.max(arcs[:, 2:], axis=0)
+
     # RETURN GRAPH
     return GraphObject(arcs=arcs, nodes=nodes, targets=targs, problem_based=problem_based,
                        output_mask=output_mask, node_aggregation=aggregation)
@@ -108,18 +113,23 @@ def getindices(len_dataset: int, perc_Train: float = 0.7, perc_Valid: float = 0.
     """
     if perc_Train < 0 or perc_Valid < 0 or perc_Train + perc_Valid > 1:
         raise ValueError('Error - percentage must stay in [0-1] and their sum must be <= 1')
+    
     # shuffle elements
     idx = list(range(len_dataset))
     if seed: np.random.seed(seed)
     if seed is not False: np.random.shuffle(idx)
+    
     # samples
     perc_Test = 1 - perc_Train - perc_Valid
     sampleTest = round(len_dataset * perc_Test)
     sampleValid = round(len_dataset * perc_Valid)
+    
     # test indices
     test_idx = idx[:sampleTest]
+    
     # validation indices
     valid_idx = idx[sampleTest:sampleTest + sampleValid]
+    
     # train indices (usually the longest set)
     train_idx = idx[sampleTest + sampleValid:]
     return (train_idx, test_idx, valid_idx)
@@ -138,6 +148,7 @@ def getSet(glist: list[GraphObject], set_indices: list[int], problem_based: str,
     # check type
     if not (type(glist) == list and all(isinstance(x, str) for x in glist)):
         raise TypeError('type of param <glist> must be list of str \'path-like\' or GraphObjects')
+    
     # get set
     length, setlist = len(set_indices), list()
     for i, elem in enumerate(set_indices):
@@ -186,17 +197,22 @@ def normalize_graphs(gTr: Union[GraphObject, list[GraphObject]], gVa: Optional[U
     # check if inputs are GraphObject OR list(s) of GraphObject(s) and the normalization method
     gTr, gVa, gTe = map(checktype, [gTr, gVa, gTe], ['gTr', 'gVa', 'gTe'])
     if based_on not in ['gTr', 'all']: raise ValueError('param <based_on> must be \'gTr\' or \'all\'')
+    
     # create list of graphs to merge
     g2merge = gTr[:]
     if based_on == 'all': g2merge += gVa[:] + gTe[:]
+    
     # merge all the graphs into a single one
     G = GraphObject.merge(g2merge, node_aggregation='average')
+   
     # G nodes label max and min
     LabelNodesMAX, LabelNodesMIN = np.max(G.nodes, axis=0), np.min(G.nodes, axis=0)
     LabelNodesMAX[LabelNodesMAX == 0] = 1  # s.t. a 0 element does not force NaN values
+    
     # G arcs label max and min
     LabelArcsMAX, LabelArcsMIN = np.max(G.arcs[:, 2:], axis=0), np.min(G.arcs[:, 2:], axis=0)
     LabelArcsMAX[LabelArcsMAX == 0] = 1  # s.t. a 0 element does not force NaN values
+    
     # normalize graphs
     for i in gTr + gVa + gTe:
         i.nodes = i.nodes / LabelNodesMAX if norm_rangeN is None else \
@@ -219,6 +235,7 @@ def MLP(input_dim: int, layers: list[int], activations, kernel_initializer, bias
     """
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import Dense, Dropout, AlphaDropout
+
     # check type
     if type(activations) != list: activations = [activations for i in layers]
     if type(kernel_initializer) != list: kernel_initializer = [kernel_initializer for i in layers]
@@ -226,22 +243,27 @@ def MLP(input_dim: int, layers: list[int], activations, kernel_initializer, bias
     if type(dropout_pos) == int:  dropout_pos = [dropout_pos]
     if type(dropout_percs) == float: dropout_percs = [dropout_percs for i in dropout_pos]
     if dropout_percs == None or dropout_pos == None: dropout_percs, dropout_pos = list(), list()
+
     # check lengths
     if not (len(activations) == len(kernel_initializer) == len(bias_initializer) == len(layers)):
         raise ValueError('Dense parameters must have the same length to be correctly processed')
     if len(dropout_percs) != len(dropout_pos):
         raise ValueError('Dropout parameters must have the same length to be correctly processed')
+
     # Dense layers
     keys = ['units', 'activation', 'kernel_initializer', 'bias_initializer']
     vals = [[layers[i], activations[i], kernel_initializer[i], bias_initializer[i]] for i in range(len(layers))]
     params = [dict(zip(keys, i)) for i in vals]
+
     # Dropout layers
     if dropout_percs and dropout_pos:
         dropout_pos = list(np.array(dropout_pos) + np.arange(len(dropout_pos)))
         for i, elem in enumerate(dropout_percs): params.insert(dropout_pos[i], {'rate': elem})
+
     # set input shape for first layer
     params[0]['input_shape'] = (input_dim,)
-    # return mlp model
+
+    # return MLP model
     dropout = AlphaDropout if alphadropout else Dropout
     mlp_layers = [Dense(**i) if 'units' in i else dropout(**i) for i in params]
     return Sequential(mlp_layers)
@@ -266,18 +288,24 @@ def get_inout_dims(net_name: str, dim_node_label: int, dim_arc_label: int, dim_t
     if len(problem) == 1: problem += '1'
     DS = dim_state
     NL, AL, T = dim_node_label, dim_arc_label, dim_target
+
     # if LGNN, get MLPs layers for gnn in layer 2+
     if layer > 0:
-        GS, GO, P = get_state, get_output, problem[0]  # problem without [0], PROVA NICCO
+        GS, GO, P = get_state, get_output, problem[0]
         if DS != 0: NL, AL = NL + DS * GS + T * (P != 'a') * GO, AL + T * (P == 'a') * GO
         else: NL, AL = NL + layer * NL * GS + ((layer - 1) * GS + 1) * T * (P != 'a') * GO, AL + T * (P == 'a') * GO
+
+    # MLP output
     if net_name == 'output':
         input_shape = (problem[0] == 'a') * (NL + AL + DS) + NL + dim_state
         output_shape = T
+
+    # MLP state
     else:
         input_shape = AL + 2 * NL + DS * (1 + (problem[1] == '1'))
         input_shape += NL * (DS == 0) * (problem[1] == '2')
         output_shape = DS if DS else NL
+
     # hidden part
     if hidden_units is None or type(hidden_units) == int and hidden_units <= 0: hidden_units = []
     if type(hidden_units) == list: layers = hidden_units + [output_shape]
