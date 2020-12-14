@@ -27,7 +27,7 @@ Note that a single layered LGNN behaves exaclty like a GNN, as it is composed of
 ### Single model training and testing
 LGNN can be trained both in parallel or serial mode, by setting `serial_training` argument when calling `LGNN.train()`. Default is `False`.
 
-In Parallel Mode, GNN layers are trained simultaneously, by processing loss on the LGNN output (i.e. the final GNN layer output), and backpropagating the error throughout the GNN layers.
+In Parallel Mode, GNN layers are trained simultaneously, by processing loss on the LGNN output (as the mean of the GNNs outputs), and backpropagating the error throughout the GNN layers.
 
 In Serial Mode, each GNN layer is trained as a standalone GNN model, therefore becoming an *expert* which solves the considered problem using the original data and the experience obtained from the previous GNN layer, so as to "correct" the errors made by the previous network, rather than solving the whole problem.
 
