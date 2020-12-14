@@ -35,12 +35,12 @@ use_MUTAG: bool = False
 # problem_type in ['cn', 'cn1', 'cn2', 'rn', 'rn1', 'rn2', 'ca', 'ca1', 'ra', 'ra1', 'cg', 'cg1', 'rg', 'rg1']
 # > ['c' classification, 'r' regression] + ['g' graph-based; 'n' node-based; 'a' arc-based;] +[('','1') GNN1, '2' GNN2]
 # > Example: 'ca' or 'ca1': arc-based classification with GNN; 'rn2' node-based regression with GNN2 (Rossi-Tiezzi)
-problem_type        : str   = 'cg'
-graphs_number       : int   = 50
+problem_type        : str   = 'cn'
+graphs_number       : int   = 100
 min_nodes_number    : int   = 15
 max_nodes_number    : int   = 40
-dim_node_label      : int   = 5
-dim_arc_label       : int   = 2
+dim_node_label      : int   = 3
+dim_arc_label       : int   = 1
 dim_target          : int   = 2
 density             : float = 0.7
 node_aggregation    : str   = 'average'
@@ -77,8 +77,8 @@ state_threshold : float = 0.01
 output_f        : Optional[tf.function] = tf.keras.activations.softmax
 
 # LGNN PARAMETERS
-layers          : int   = 3
-get_state       : bool  = False
+layers          : int   = 5
+get_state       : bool  = True
 get_output      : bool  = True
 path_writer     : str                   = 'writer/'
 optimizer       : tf.keras.optimizers   = tf.optimizers.Adam(learning_rate=0.001)
