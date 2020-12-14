@@ -9,11 +9,13 @@ In the following scripts, gnn is a by default a binary classifier for node-focus
 
 Open the script `starter` and set parameters in section *SCRIPT OPTIONS* to change dataset and/or GNN models architecture and learning behaviour.
 
+
 In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solving a graph-based problem ([details](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/MUTAG_raw/Mutagenicity_label_readme.txt))
 
 
 ### Single model training and testing
 To perform both gnn training and testing, run:
+
 
     from starter import gnn, gTr, gTe, gVa
     
@@ -40,6 +42,7 @@ To perform a 10-fold cross validation on gnn, run:
     
     # LKO
     lko_res = gnn.LKO(graphs, 10, epochs=epochs)
+
     
     # print test result
     for i in lko_res: 
@@ -59,6 +62,7 @@ The following image details the GNN model as it is implemented in `GNN / GNN.py`
 
 ## Citing
 To cite the GNN implementation please use the following publication:
+
 
     Pancino, N., Rossi, A., Ciano, G., Giacomini, G., Bonechi, S., Andreini, P., Scarselli, F., Bianchini, M., Bongini, P. (2020),
     "Graph Neural Networks for the Prediction of Protein–Protein Interfaces",
