@@ -3,7 +3,7 @@ This repo contains Tensorflow 2.x implementations of the Graph Neural Network (G
 
 **Authors**
 - **GNN:** [Niccolò Pancino](http://sailab.diism.unisi.it/people/niccolo-pancino/), [Pietro Bongini](http://sailab.diism.unisi.it/people/pietro-bongini/)
-- **LGNN:** [Niccolò Pancino](http://sailab.diism.unisi.it/people/niccolo-pancino/)
+- **LGNN:** Niccolò Pancino
 
 
 ## Install
