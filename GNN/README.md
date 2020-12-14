@@ -61,6 +61,7 @@ The following image details the GNN model as it is implemented in `GNN / GNN.py`
 
 
 ## Citing
+### Implementation
 To cite the GNN implementation please use the following publication:
 
 
@@ -80,6 +81,7 @@ Bibtex:
 
 
 ---------
+### Original Paper
 To cite GNN please use the following publication:
 
     F. Scarselli, M. Gori,  A. C. Tsoi, M. Hagenbuchner, G. Monfardini, 
