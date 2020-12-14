@@ -97,6 +97,7 @@ The following image details the GNN model as it is implemented in `GNN/GNN.py`.
    
 
 ## Citing
+### Implementation
 To cite the GNN/LGNN implementations please use the following publication:
 
     Pancino, N., Rossi, A., Ciano, G., Giacomini, G., Bonechi, S., Andreini, P., Scarselli, F., Bianchini, M., Bongini, P. (2020),
@@ -115,6 +116,7 @@ Bibtex:
 
 
 ---------
+### GNN original paper
 To cite GNN please use the following publication:
 
     F. Scarselli, M. Gori,  A. C. Tsoi, M. Hagenbuchner, G. Monfardini, 
@@ -134,6 +136,7 @@ Bibtex:
 
 
 ---------
+### LGNN original paper
 To cite LGNN please use the following publication:
 
     N. Bandinelli, M. Bianchini and F. Scarselli, 
@@ -156,6 +159,7 @@ Bibtex:
 
 ## Contributions
 Part of the code was inspired by [M. Tiezzi](http://sailab.diism.unisi.it/people/matteo-tiezzi/) and [A. Rossi](http://sailab.diism.unisi.it/people/alberto-rossi/) GNN implementation in TF 1.x ([repo](https://github.com/sailab-code/gnn)).
+
 
 ## License
 Released under the 3-Clause BSD license (see `LICENSE.txt`):
