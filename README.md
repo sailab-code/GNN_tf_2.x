@@ -14,6 +14,10 @@ To install the requirements you can use the following command:
 
     pip install -U -r requirements.txt
 
+### install from folder
+Download this folder and open terminal in its location, then use the following command:
+    
+    python setup.py install
 
 ## Simple usage examples
 In the following scripts, gnn is a GNN trained by default to solve a binary node-focused classification task on graphs with random nodes/edges/targets, while lgnn is a 5-layered GNN.
