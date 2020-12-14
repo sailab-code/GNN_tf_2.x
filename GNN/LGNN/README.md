@@ -28,12 +28,13 @@ To perform both lgnn training and testing, run:
     epochs = 200
     
     # training in parallel mode
-    gnn.train(gTr, epochs, gVa)
+    lgnn.train(gTr, epochs, gVa)
     
     # training in serial mode
-    # gnn.train(gTr, epochs, gVa, serial_training=True)
+    # lgnn.train(gTr, epochs, gVa, serial_training=True)
+    
     # test the lgnn
-    res = gnn.test(gTe)
+    res = lgnn.test(gTe)
 
     # print test result
     for i in res:  
@@ -48,7 +49,7 @@ To perform a 10-fold cross validation on lgnn, run:
     epochs = 200
     
     # LKO: as mentioned, arg serial_training affects LGNN training process
-    lko_res = gnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
+    lko_res = lgnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
     
     # print test result
     for i in lko_res: 
@@ -62,6 +63,7 @@ To visualize learning progress, use TensorBoard --logdir command providing the l
 
 
 ## Citing
+### Implementation
 To cite the LGNN implementation please use the following publication:
 
     Pancino, N., Rossi, A., Ciano, G., Giacomini, G., Bonechi, S., Andreini, P., Scarselli, F., Bianchini, M., Bongini, P. (2020),
@@ -80,6 +82,7 @@ Bibtex:
 
 
 ---------
+### Original Paper
 To cite LGNN please use the following publication:
 
     N. Bandinelli, M. Bianchini and F. Scarselli, 
