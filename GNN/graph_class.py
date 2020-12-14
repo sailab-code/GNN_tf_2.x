@@ -1,4 +1,3 @@
-# coding=utf-8
 from __future__ import annotations
 from typing import Optional
 
@@ -29,22 +28,29 @@ class GraphObject:
         self.arcs = arcs
         self.nodes = nodes
         self.targets = targets
+
         # store dimensions
         self.DIM_NODE_LABEL = nodes.shape[1]  # first column contains node indices
         self.DIM_ARC_LABEL = arcs.shape[1] - 2  # first two columns contain nodes indices
         self.DIM_TARGET = targets.shape[1]
+
         # setting the problem type: node, arcs or graph based + check existence of passed parameters in keys
         lenMask = {'n': nodes.shape[0], 'a': arcs.shape[0], 'g': nodes.shape[0]}
         self.problem_based = problem_based
+
         # build set_mask, for a dataset composed of only a single graph: its nodes have to be divided in Tr, Va and Te
         self.set_mask = np.ones(lenMask[self.problem_based]) if set_mask is None else set_mask
+
         # build output_mask
         self.output_mask = np.ones(len(self.set_mask)) if output_mask is None else output_mask
+
         # check lengths: output_mask must be as long as set_mask
         if len(self.set_mask) != len(self.output_mask):
             raise ValueError('Error - len(<set_mask>) != len(<output_mask>)')
+
         # build node_graph conversion matrix
         self.NodeGraph = self.buildNodeGraph() if NodeGraph is None else NodeGraph
+
         # build ArcNode tensor or acquire it from input
         self.ArcNode = self.buildArcNode(node_aggregation=node_aggregation) if ArcNode is None else ArcNode
 
@@ -106,7 +112,7 @@ class GraphObject:
     def getOutputMask(self):         return self.output_mask.copy()
     def getArcNode(self):            return self.ArcNode.copy()
     def getNodeGraph(self):          return self.NodeGraph.copy()
-    def initState(self, v: int = 0): return np.zeros((self.nodes.shape[0], v)) if v > 0 else self.nodes.copy()
+    #def initState(self, v: int = 0): return np.zeros((self.nodes.shape[0], v)) if v > 0 else self.nodes.copy()
 
     ## STATIC METHODS #################################################################################################
     @staticmethod
@@ -165,7 +171,8 @@ class GraphObject:
             raise TypeError('type of param <glist> must be list of GraphObjects')
         # check problem_based parameter for all the graphs. Take the lost(set of all problem type in glist).
         problem_based_set = list({i.problem_based for i in glist})
-        if len(problem_based_set) != 1 or problem_based_set[0] not in ['n', 'a', 'g']:
+        if problem_based_set == []: return None
+        elif len(problem_based_set) != 1 or problem_based_set[0] not in ['n', 'a', 'g']:
             raise ValueError('All graphs in <glist> must have the same <g.problem_based> parameter in [n,a,g]')
         # retrieve problem type and all the useful entities -> tuple
         problem_based = problem_based_set.pop()

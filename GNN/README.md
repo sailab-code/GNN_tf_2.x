@@ -1,19 +1,21 @@
-# GNN - Graph Neural Network Models
-This repo contains a Tensorflow 2.x implementations of the Graph Neural Network (GNN) and Layered Graph Neural Network (LGNN) Models.
+# GNN - Graph Neural Network Model
+This repo contains a Tensorflow 2.x implementations of the Graph Neural Network (GNN) Model.
 
-**Authors**
-- **GNN:** [Niccolò Pancino](http://sailab.diism.unisi.it/people/niccolo-pancino/), [Pietro Bongini](http://sailab.diism.unisi.it/people/pietro-bongini/)
+**Authors:** [Niccolò Pancino](http://sailab.diism.unisi.it/people/niccolo-pancino/), [Pietro Bongini](http://sailab.diism.unisi.it/people/pietro-bongini/)
 
 
 ## Simple usage example
-In the following scripts, gnn is a GNN trained by default to solve a binary node-focused classification task on graphs with random nodes/edges/targets.
+In the following scripts, gnn is a by default a binary classifier for node-focused task on graphs with random nodes/edges/targets.
 
-Open the script `starter_gnn` and set parameters in section *SCRIPT OPTIONS* to change dataset and/or GNN/LGNN models architectures and learning behaviour.
+Open the script `starter` and set parameters in section *SCRIPT OPTIONS* to change dataset and/or GNN models architecture and learning behaviour.
+
 
 In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solving a graph-based problem ([details](https://github.com/NickDrake117/GNN_tf_2.x/blob/main/MUTAG_raw/Mutagenicity_label_readme.txt))
 
 
 ### Single model training and testing
+To perform both gnn training and testing, run:
+
 
     from starter import gnn, gTr, gTe, gVa
     
@@ -31,15 +33,16 @@ In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solv
 
 
 ### K-fold Cross Validation
-To perform a 10-fold cross validation on gnn, simply run:
+To perform a 10-fold cross validation on gnn, run:
 
-    from starter_gnn import gnn, graphs
+    from starter import gnn, graphs
     from numpy import mean
     
     epochs = 200
     
     # LKO
-    lko_res = gnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
+    lko_res = gnn.LKO(graphs, 10, epochs=epochs)
+
     
     # print test result
     for i in lko_res: 
@@ -58,7 +61,8 @@ The following image details the GNN model as it is implemented in `GNN / GNN.py`
 
 
 ## Citing
-To cite the GNN implementations please use the following publication:
+To cite the GNN implementation please use the following publication:
+
 
     Pancino, N., Rossi, A., Ciano, G., Giacomini, G., Bonechi, S., Andreini, P., Scarselli, F., Bianchini, M., Bongini, P. (2020),
     "Graph Neural Networks for the Prediction of Protein–Protein Interfaces",
@@ -92,12 +96,3 @@ Bibtex:
       volume={20},
       pages={61-80}
     }
-
-
-## License
-Released under the 3-Clause BSD license (see `LICENSE.txt`):
-
-    Copyright (C) 2004-2020 Niccolò Pancino
-    Niccolò Pancino <niccolo.pancino@unifi.it>
-    Pietro Bongini <pietro.bongini@gmail.com >
-    Matteo Tiezzi <mtiezzi@diism.unisi.it>
