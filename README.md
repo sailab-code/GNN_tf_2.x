@@ -58,7 +58,7 @@ To perform models training and testing, run:
     for i in res:  
         print('{}: \t{:.4g}'.format(i, res[i]))
 
-***NOTE** uncomment lgnn lines to train/test lgnn model*
+***NOTE** uncomment lgnn lines to train and test lgnn model*
 
 
 ### K-fold cross validation
@@ -82,7 +82,7 @@ To perform a 10-fold cross validation on gnn, simply run:
     for i in lko_res: 
         for i in m: print('{}: \t{:.4f} \t{}'.format(i, mean(lko_res[i]), lko_res[i]))
 
-***NOTE**: uncomment lgnn lines to perform LKO on lgnn model*
+***NOTE**: uncomment lgnn lines to perform 10-fold cross validation on lgnn model*
 
 
 ### TensorBoard
