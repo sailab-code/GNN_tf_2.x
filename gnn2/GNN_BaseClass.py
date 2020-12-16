@@ -284,7 +284,7 @@ class BaseGNN(ABC):
     def LKO(self, dataset: Union[list[GraphObject], list[list[GraphObject]]], number_of_batches: int = 10, useVa: bool = False,
             seed: Optional[float] = None, normalize_method: str = 'gTr', node_aggregation: str = 'average', acc_classes: bool = False, 
             epochs: int = 500, update_freq: int = 10, max_fails: int = 10, class_weights: Union[int, float, list[Union[float, int]]] = 1,
-            mean: bool = False, serial_training: bool = False, verbose: int = 3) -> dict[str, list[float]]:
+            mean: bool = True, serial_training: bool = False, verbose: int = 3) -> dict[str, list[float]]:
         """ LEAVE K OUT PROCEDURE
         :param dataset: (list) of GraphObject OR (list) of lists of GraphObject on which <gnn> has to be valuated
                         > NOTE: for graph-based problem, if type(dataset) == list of GraphObject,
