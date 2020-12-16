@@ -155,7 +155,7 @@ class GraphObject:
             np.savetxt(graph_folder_path + 'set_mask.txt', g.set_mask, fmt=format, delimiter=',')
         if not np.array_equal(g.output_mask, np.ones(len(g.output_mask))):
             np.savetxt(graph_folder_path + "out_mask.txt", g.output_mask, fmt=format, delimiter=',')
-        if g.problem_based is 'g' and g.targets.shape[0] > 1:
+        if g.problem_based == 'g' and g.targets.shape[0] > 1:
             np.savetxt(graph_folder_path + 'NodeGraph.txt', g.NodeGraph, fmt=format, delimiter=',')
 
     # -----------------------------------------------------------------------------------------------------------------
