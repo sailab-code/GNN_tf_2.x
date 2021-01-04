@@ -90,10 +90,13 @@ class BaseGNN(ABC):
 
         # graph processing
         it, _, out = self.Loop(g, training=training)
+
         # weighted loss if class_metrics != 1, else it does not modify loss values
         loss_weight = tf.reduce_sum(class_weights * targs, axis=1)
-        loss = self.loss_function(targs, out, **self.loss_args)
-        loss *= loss_weight
+        if type(out) == list:
+            loss = tf.reduce_sum([self.loss_function(targs, i, **self.loss_args) * loss_weight for i in out], axis=0)
+            out = tf.reduce_sum(out, axis=0)
+        else: loss = self.loss_function(targs, out, **self.loss_args) * loss_weight
         return it, loss, targs, out
 
     # -----------------------------------------------------------------------------------------------------------------
@@ -282,7 +285,7 @@ class BaseGNN(ABC):
 
     ## K-FOLD CROSS VALIDATION METHOD #################################################################################
     def LKO(self, dataset: Union[list[GraphObject], list[list[GraphObject]]], number_of_batches: int = 10, useVa: bool = False,
-            seed: Optional[float] = None, normalize_method: str = 'gTr', node_aggregation: str = 'average', acc_classes: bool = False, 
+            seed: Optional[float] = None, normalize_method: str = 'gTr', node_aggregation: str='average', acc_classes: bool = False,
             epochs: int = 500, update_freq: int = 10, max_fails: int = 10, class_weights: Union[int, float, list[Union[float, int]]] = 1,
             mean: bool = True, serial_training: bool = False, verbose: int = 3) -> dict[str, list[float]]:
         """ LEAVE K OUT PROCEDURE
