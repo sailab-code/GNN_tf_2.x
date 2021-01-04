@@ -29,7 +29,8 @@ In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solv
 Note that a single layered LGNN behaves exaclty like a GNN, as it is composed of a single GNN.
 
 ### Single model training and testing
-LGNN can be trained both in parallel or serial mode, by setting `serial_training` argument when calling `LGNN.train()`. Default is `False`.
+LGNN can be trained both in parallel or 
+mode, by setting `serial_training` argument when calling `LGNN.train()`. Default value is `False`.
 
 In *Parallel Mode*, GNN layers are trained simultaneously, by processing loss on the LGNN output (as the mean of the GNNs outputs), and backpropagating the error throughout the GNN layers.
 
@@ -74,12 +75,12 @@ To perform a 10-fold cross validation on gnn, simply run:
     epochs = 200
     
     # GNN LKO
-    lko_res = gnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
+    lko_res = gnn.LKO(graphs, 10, epochs=epochs)
     
     
     # LGNN LKO: as mentioned, arg serial_training affects LGNN learning process
     # lko_res = lgnn.LKO(graphs, 10, epochs=epochs)
-    # lko_res = lgnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
+    # lko_res = lgnn.LKO(graphs, 10, epochs=epochs, serial_training=True)
     
 
     # print test result
@@ -90,7 +91,7 @@ To perform a 10-fold cross validation on gnn, simply run:
 
 
 ### TensorBoard
-To visualize learning progress, use TensorBoard --logdir command providing the log directory. Default it's `writer`.
+To visualize learning progress, use TensorBoard --logdir command providing the log directory. Default value is `writer`.
 
     ...\projectfolder> tensorboard --logdir writer
     
