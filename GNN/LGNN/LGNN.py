@@ -100,7 +100,7 @@ class LGNN(BaseGNN):
             K.append(k)
             nodeplus, arcplus = self.update_labels(g, state, out)
         k, state, out = self.gnns[-1].Loop(g, nodeplus=nodeplus, arcplus=arcplus, training=training)
-        return K + [k], state, tf.reduce_mean(outs + [out], axis=0)
+        return K + [k], state, outs+[out] #tf.reduce_sum(outs + [out], axis=0)
 
 
     ## TRAINING METHOD ################################################################################################
