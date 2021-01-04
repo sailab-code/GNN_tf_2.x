@@ -43,14 +43,13 @@ To perform a 10-fold cross validation on gnn, run:
     # LKO
     lko_res = gnn.LKO(graphs, 10, epochs=epochs)
 
-    
     # print test result
     for i in lko_res: 
         for i in m: print('{}: \t{:.4f} \t{}'.format(i, mean(lko_res[i]), lko_res[i]))
 
 
 ### TensorBoard
-To visualize learning progress, use TensorBoard --logdir command providing the log directory. Default it's `writer`.
+To visualize learning progress, use TensorBoard --logdir command providing the log directory. Default value is `writer`.
 
     ...\projectfolder> tensorboard --logdir writer
    
