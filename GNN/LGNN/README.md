@@ -15,7 +15,7 @@ Note that a single layered LGNN behaves exaclty like a GNN, as it is composed of
 
 
 ### Single model training and testing
-LGNN can be trained both in parallel or serial mode, by setting `serial_training` argument when calling `LGNN.train()`. Default is `False`.
+LGNN can be trained both in parallel or serial mode, by setting `serial_training` argument when calling `LGNN.train()`. Default value is `False`.
 
 In Parallel Mode, GNN layers are trained simultaneously, by processing loss on the LGNN output (i.e. the final GNN layer output), and backpropagating the error throughout the GNN layers.
 
@@ -49,7 +49,8 @@ To perform a 10-fold cross validation on lgnn, run:
     epochs = 200
     
     # LKO: as mentioned, arg serial_training affects LGNN training process
-    lko_res = lgnn.LKO(graphs, 10, epochs=epochs, serial_training=False)
+    # lko_res = lgnn.LKO(graphs, 10, epochs=epochs, serial_training=True)
+    lko_res = lgnn.LKO(graphs, 10, epochs=epochs)
     
     # print test result
     for i in lko_res: 
@@ -57,7 +58,7 @@ To perform a 10-fold cross validation on lgnn, run:
 
 
 ### TensorBoard
-To visualize learning progress, use TensorBoard --logdir command providing the log directory. Default it's `writer`.
+To visualize learning progress, use TensorBoard --logdir command providing the log directory. Default value is `writer`.
 
     ...\projectfolder> tensorboard --logdir writer
 
