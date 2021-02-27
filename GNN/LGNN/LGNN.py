@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Union, Optional
 
 import tensorflow as tf
-from numpy import array
+from numpy import array, zeros
 
 from GNN.GNN import GNNnodeBased, GNNgraphBased, GNNedgeBased, GNN2
 from GNN.GNN_BaseClass import BaseGNN
@@ -79,9 +79,15 @@ class LGNN(BaseGNN):
         # check state
         if self.get_state: nodeplus = state
         # check output
-        if self.get_output and g.problem_based !='a' and nodeplus is None: nodeplus = output
-        elif self.get_output and g.problem_based !='a': nodeplus = tf.concat([nodeplus, output], axis=1)
-        elif self.get_output: arcplus = output
+        if self.get_output:
+	        # process output to make it shape compatible
+	        mask = tf.logical_and(g.getSetMask(), g.getOutputMask())
+	        row = g.nodes.shape[0] if g.problem_based != 'a' else g.arcs.shape[0]
+	        out = zeros((row, g.targets.shape[1]))
+	        out[mask] = output
+        	if g.problem_based != 'a' and nodeplus is None: nodeplus = out
+        	elif g.problem_based !='a': nodeplus = tf.concat([nodeplus, out], axis=1)
+        	else: arcplus = out
         return nodeplus, arcplus
 
 
