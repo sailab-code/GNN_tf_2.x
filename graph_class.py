@@ -180,8 +180,8 @@ class GraphObject:
 		# retrieve matrices from graph list
 		problem_based = problem_based_set.pop()
 		nodes, nodes_lens, arcs, targets, set_mask, output_mask, nodegraph = zip(*[(i.getNodes(), i.nodes.shape[0], i.getArcs(), i.getTargets(),
-																					i.getSetMask(), i.getOutputMask(), i.getNodeGraph())
-																				   for i in glist])
+											    i.getSetMask(), i.getOutputMask(), i.getNodeGraph())
+											   for i in glist])
 		# get single matrices for new graph
 		for i, elem in enumerate(arcs): elem[:, :2] += sum(nodes_lens[:i])
 		arcs = np.concatenate(arcs, axis=0)
