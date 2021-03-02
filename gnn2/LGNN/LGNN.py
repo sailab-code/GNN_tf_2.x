@@ -84,8 +84,17 @@ class LGNN(BaseGNN):
 
     ## EVALUATE METHODS ###############################################################################################
     def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]], training: bool) -> tuple:
-        it, loss_weight, targs, out = super().evaluate_single_graph(g, class_weights, training)
+        # get targets
+        targs = tf.constant(g.getTargets(), dtype=tf.float32)
+        if g.problem_based != 'g': targs = targs[tf.logical_and(g.getSetMask(), g.getOutputMask())]
+
+        # graph processing
+        it, _, out = self.Loop(g, training=training)
+
+        # if class_metrics != 1, else it does not modify loss values
+        loss_weight = tf.reduce_sum(class_weights * targs, axis=1)
         loss = tf.reduce_sum([self.loss_function(targs, i, **self.loss_args) * loss_weight for i in out], axis=0)
+
         # Add a residual connection to the lgnn output, s.t. outputs are merged and then are processed by last output activation
         out = tf.reduce_sum(out, axis=0)
         return it, loss, targs, self.gnns[-1].output_activation(out)
