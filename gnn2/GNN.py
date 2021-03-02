@@ -107,7 +107,15 @@ class GNNnodeBased(BaseGNN):
 
     ## EVALUATE METHODS ###############################################################################################
     def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]], training: bool) -> tuple:
-        it, loss_weight, targs, out = super().evaluate_single_graph(g, class_weights, training)
+        # get targets
+        targs = tf.constant(g.getTargets(), dtype=tf.float32)
+        if g.problem_based != 'g': targs = targs[tf.logical_and(g.getSetMask(), g.getOutputMask())]
+
+        # graph processing
+        it, _, out = self.Loop(g, training=training)
+
+        # if class_metrics != 1, else it does not modify loss values
+        loss_weight = tf.reduce_sum(class_weights * targs, axis=1)
         loss = self.loss_function(targs, out, **self.loss_args) * loss_weight
         return it, loss, targs, self.output_activation(out)
 
