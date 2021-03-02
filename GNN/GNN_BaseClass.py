@@ -91,13 +91,9 @@ class BaseGNN(ABC):
         # graph processing
         it, _, out = self.Loop(g, training=training)
 
-        # weighted loss if class_metrics != 1, else it does not modify loss values
+        # if class_metrics != 1, else it does not modify loss values
         loss_weight = tf.reduce_sum(class_weights * targs, axis=1)
-        if type(out) == list:
-            loss = tf.reduce_sum([self.loss_function(targs, i, **self.loss_args) * loss_weight for i in out], axis=0)
-            out = tf.reduce_sum(out, axis=0)
-        else: loss = self.loss_function(targs, out, **self.loss_args) * loss_weight
-        return it, loss, targs, out
+        return it, loss_weight, targs, out
 
     # -----------------------------------------------------------------------------------------------------------------
     def evaluate(self, g: Union[GraphObject, list[GraphObject]], class_weights: Union[int, float, list[float]]) -> tuple:
@@ -177,7 +173,6 @@ class BaseGNN(ABC):
             # apply gradients
             zipped = zip([i for j in dwbS + dwbO for i in j], [i for j in wS + wO for i in j])
             self.optimizer.apply_gradients(zipped)
-
 
         ### TRAINING FUNCTION -----------------------------------------------------------------------------------------
         if verbose not in range(4): raise ValueError('param <verbose> not in [0,1,2,3]')

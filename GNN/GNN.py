@@ -51,8 +51,10 @@ class GNNnodeBased(BaseGNN):
         # Check arguments
         if type(state_vect_dim) != int or state_vect_dim < 0: raise TypeError('param <state_vect_dim> must be int>=0')
         
-        # parameters and hyperparameters
+        # BaseGNN constructor
         super().__init__(optimizer, loss_function, loss_arguments, addressed_problem, extra_metrics, extra_metrics_arguments, path_writer, namespace)
+
+        ### GNN parameter
         self.net_state = net_state
         self.net_output = net_output
         self.max_iteration = max_iteration
@@ -103,6 +105,11 @@ class GNNnodeBased(BaseGNN):
         out = self.Loop(g, training=False)[-1]
         return self.output_activation(out)
 
+    ## EVALUATE METHODS ###############################################################################################
+    def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]], training: bool) -> tuple:
+        it, loss_weight, targs, out = super().evaluate_single_graph(g, class_weights, training)
+        loss = self.loss_function(targs, out, **self.loss_args) * loss_weight
+        return it, loss, targs, self.output_activation(out)
 
     ## LOOP METHODS ###################################################################################################
     # @tf.function
@@ -186,7 +193,9 @@ class GNNnodeBased(BaseGNN):
         # compute the output of the gnn network
         out = self.net_output(input_to_net_output, training=training)
         return k, state, out
-   
+
+
+
 
 #######################################################################################################################
 ### CLASS GNN - GRAPH BASED ###########################################################################################
@@ -199,6 +208,8 @@ class GNNgraphBased(GNNnodeBased):
         nodegraph = tf.constant(g.getNodeGraph(), dtype=tf.float32)
         out_gnn = tf.matmul(nodegraph, out_nodes, transpose_a=True)
         return iter, state_nodes, out_gnn
+
+
 
 
 #######################################################################################################################
@@ -223,6 +234,8 @@ class GNNedgeBased(GNNnodeBased):
         
         # takes only arcs states for those with output_mask==1 AND belonging to the set (in case Dataset == 1 Graph)
         return tf.boolean_mask(arc_state, mask)
+
+
 
 
 #######################################################################################################################
