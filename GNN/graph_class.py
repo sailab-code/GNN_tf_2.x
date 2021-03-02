@@ -28,9 +28,9 @@ class GraphObject:
 		:param node_aggregation:Define how graph-based problem are faced. It can be 'average', 'sum' or 'normalized'
 		"""
 		# store arcs, nodes, targets
-		self.arcs = arcs
-		self.nodes = nodes
-		self.targets = targets
+		self.arcs = arcs.astype(np.float32)
+		self.nodes = nodes.astype(np.float32)
+		self.targets = targets.astype(np.float32)
 		# store dimensions
 		self.DIM_NODE_LABEL = nodes.shape[1]  	# first column contains node indices (output_mask is not here!)
 		self.DIM_ARC_LABEL = (arcs.shape[1] - 2)  	# first two columns contain nodes indices
@@ -39,17 +39,17 @@ class GraphObject:
 		lenMask = {'n':nodes.shape[0], 'a':arcs.shape[0], 'g':nodes.shape[0]}
 		self.problem_based = problem_based
 		# build set_mask, for a dataset composed of only a single graph: its nodes have to be divided in Tr, Va and Te
-		self.set_mask = np.ones(lenMask[self.problem_based]) if set_mask is None else set_mask
+		self.set_mask = np.ones(lenMask[self.problem_based]) if set_mask is None else set_mask.astype(bool)
 		# build output_mask
-		self.output_mask = np.ones(len(self.set_mask)) if output_mask is None else output_mask
+		self.output_mask = np.ones(len(self.set_mask)) if output_mask is None else output_mask.astype(bool)
 		# check lengths: output_mask must be as long as set_mask
 		if len(self.set_mask)!=len(self.output_mask): raise ValueError('Error - len(<set_mask>) != len(<output_mask>)')
 		# build Adjancency Matrix
 		self.Adjacency = self.buildAdiacencyMatrix()
 		# build ArcNode tensor or acquire it from input
-		self.ArcNode = self.buildArcNode(node_aggregation=node_aggregation) if ArcNode is None else ArcNode
+		self.ArcNode = self.buildArcNode(node_aggregation=node_aggregation) if ArcNode is None else ArcNode.astype(np.float32)
 		# build node_graph conversion matrix
-		self.NodeGraph = self.buildNodeGraph() if NodeGraph is None else NodeGraph
+		self.NodeGraph = self.buildNodeGraph() if NodeGraph is None else NodeGraph.astype(np.float32)
 
 	# -----------------------------------------------------------------------------------------------------------------
 	def copy(self):
@@ -63,9 +63,9 @@ class GraphObject:
 	# -----------------------------------------------------------------------------------------------------------------
 	def buildAdiacencyMatrix(self):
 		from scipy.sparse import coo_matrix
-		values = np.ones(self.arcs.shape[0], dtype=int)
+		values = np.ones(self.arcs.shape[0], dtype=np.float32)
 		indices = self.arcs[:,:2].astype(int)
-		return coo_matrix((values, (indices[:, 0], indices[:, 1])), shape=(len(self.nodes), len(self.nodes)))
+		return coo_matrix((values, (indices[:, 0], indices[:, 1])), shape=(len(self.nodes), len(self.nodes)), dtype=np.float32)
 
 	# -----------------------------------------------------------------------------------------------------------------
 	def buildArcNode(self, node_aggregation:str):
@@ -88,7 +88,7 @@ class GraphObject:
 		else: raise ValueError("ERROR: Unknown aggregation mode")
 		# isolated nodes correction: if nodes[i] is isolated, then ArcNode[:,i]=0, to maintain nodes ordering
 		from scipy.sparse import coo_matrix
-		return coo_matrix((values_vector, (row, self.arcs[:,1])), shape=(len(self.arcs), len(self.nodes)))
+		return coo_matrix((values_vector, (row, self.arcs[:,1])), shape=(len(self.arcs), len(self.nodes)), dtype=np.float32)
 
 	# -----------------------------------------------------------------------------------------------------------------
 	def setArcNode(self, node_aggregation:str):
@@ -105,7 +105,7 @@ class GraphObject:
 		"""
 		# nodes_output_coefficient = np.count_nonzero(self.output_mask)
 		nodes_output_coefficient = self.nodes.shape[0]
-		return np.ones((nodes_output_coefficient, 1)) * 1 / nodes_output_coefficient
+		return np.ones((nodes_output_coefficient, 1), dtype=np.float32) * 1 / nodes_output_coefficient
 
 	## GETTERS ########################################################################################################
 	def getArcs(self): 			return self.arcs.copy()
@@ -166,9 +166,9 @@ class GraphObject:
 	def merge(glist, node_aggregation:str):
 		""" Method to merge graphs: it takes in input a list of graphs and returns them as a single graph
 		:param glist: list of GraphObjects
-			> NOTE If g_list[0].problem_based=='g', NodeGraph will have dimension (Num nodes, Num graphs),
-			> else (Num nodes,1)
-		:return: a new GraphObject containing all the information (nodes, arcs, targets) in g_list
+			> NOTE If glist[:].problem_based=='g', NodeGraph will have dimension (Num nodes, Num graphs), else (Num nodes,1)
+		:param node_aggregation: str, node aggregation mode for new GraphObject
+		:return: a new GraphObject containing all the information (nodes, arcs, targets) in glist
 		"""
 		# check parameters
 		if not (type(glist) == list and all(isinstance(x, (GraphObject, str)) for x in glist)):
@@ -177,31 +177,18 @@ class GraphObject:
 		problem_based_set = list(set([i.problem_based for i in glist]))
 		if len(problem_based_set)!=1 or problem_based_set[0] not in ['n','a','g']:
 			raise ValueError('All graphs in <glist> must have the same <g.problem_based> parameter')
+		# retrieve matrices from graph list
 		problem_based = problem_based_set.pop()
-		# nodes
-		nodes_list = [i.getNodes() for i in glist]
-		nodes = np.concatenate(tuple(nodes_list), axis=0)
-		nodes_lens = [i.shape[0] for i in nodes_list]
-		# arcs
-		arcs_list = [i.getArcs() for i in glist]
-		for i,elem in enumerate(arcs_list): elem[:,:2]+=sum(nodes_lens[:i])
-		arcs = np.concatenate(tuple(arcs_list), axis=0)
-		# targets
-		targets_list = [i.getTargets() for i in glist]
-		targets = np.concatenate(tuple(targets_list), axis=0)
-		# set mask
-		set_mask = [i.getSetMask() for i in glist]
-		set_mask = np.concatenate(tuple(set_mask), axis=0)
-		# output mask
-		output_mask = [i.getOutputMask() for i in glist]
-		output_mask = np.concatenate(tuple(output_mask), axis=0)
-		# nodegraph matrix
-		nodegraph = None
-		if problem_based == 'g':
-			from scipy.linalg import block_diag
-			nodegraphs_list = [i.getNodeGraph() for i in glist]
-			nodegraph = block_diag(*nodegraphs_list)
+		nodes, nodes_lens, arcs, targets, set_mask, output_mask, nodegraph = zip(*[(i.getNodes(), i.nodes.shape[0], i.getArcs(), i.getTargets(), i.getSetMask(), i.getOutputMask(), i.getNodeGraph()) for i in glist])
+		# get single matrices for new graph
+		for i, elem in enumerate(arcs): elem[:, :2] += sum(nodes_lens[:i])
+		arcs = np.concatenate(arcs, axis=0)
+		nodes = np.concatenate(nodes, axis=0)
+		targets = np.concatenate(targets, axis=0)
+		set_mask = np.concatenate(set_mask, axis=0)
+		output_mask = np.concatenate(output_mask, axis=0)
+		from scipy.linalg import block_diag
+		nodegraph = None if problem_based != 'g' else block_diag(*nodegraph)
 		# resulting GraphObject
 		return GraphObject(arcs=arcs, nodes=nodes, targets=targets, set_mask=set_mask, output_mask=output_mask,
-						   problem_based=problem_based, NodeGraph=nodegraph,
-						   node_aggregation=node_aggregation)
+						   problem_based=problem_based, NodeGraph=nodegraph, node_aggregation=node_aggregation)
