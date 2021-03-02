@@ -114,6 +114,7 @@ class GraphObject:
 	def getProblemBased(self): 	return self.problem_based[:]
 	def getSetMask(self): 		return self.set_mask.copy()
 	def getOutputMask(self):	return self.output_mask.copy()
+	def getAdjacency(self): 	return self.Adjacency.copy()
 	def getArcNode(self): 		return self.ArcNode.copy()
 	def getNodeGraph(self): 	return self.NodeGraph.copy()
 	def initState(self,v:int=0):return np.zeros((self.nodes.shape[0],v)) if v>0 else self.nodes.copy()
