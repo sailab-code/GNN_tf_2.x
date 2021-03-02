@@ -84,16 +84,7 @@ class BaseGNN(ABC):
     ## EVALUATE METHODs ###############################################################################################
     def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]], training: bool) -> tuple:
         """ evaluate method for evaluating one graph single graph. Returns iteration, loss, target and output """
-        # get targets
-        targs = tf.constant(g.getTargets(), dtype=tf.float32)
-        if g.problem_based != 'g': targs = targs[tf.logical_and(g.getSetMask(), g.getOutputMask())]
-
-        # graph processing
-        it, _, out = self.Loop(g, training=training)
-
-        # if class_metrics != 1, else it does not modify loss values
-        loss_weight = tf.reduce_sum(class_weights * targs, axis=1)
-        return it, loss_weight, targs, out
+        pass
 
     # -----------------------------------------------------------------------------------------------------------------
     def evaluate(self, g: Union[GraphObject, list[GraphObject]], class_weights: Union[int, float, list[float]]) -> tuple:
