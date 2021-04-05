@@ -15,7 +15,8 @@ class GraphObject:
 				 NodeGraph = None,
 				 ArcNode = None,
 				 node_aggregation:str = "average"):
-		""" CONSTRUCTOR METHOD
+		"""
+		CONSTRUCTOR METHOD
 		:param arcs: Ordered Arcs Matrix where arcs[i] = [ID Node From | ID NodeTo | Arc Label]
 		:param nodes: Ordered Nodes Matrix where nodes[i] = [ID Node | Node Label]
 		:param targets: Targets Array with shape (Num of targeted example [nodes or arcs], dim_target example)
@@ -121,7 +122,67 @@ class GraphObject:
 	
 	## STATIC METHODS #################################################################################################
 	@staticmethod
-	def load(graph_folder_path:str, problem_based:str, *, node_aggregation:str):
+	def save(graph_folder_path:str, g, *, save_set_mask:bool=False):
+		""" Save a graph to a directory, creating txt files referring to nodes, arcs, targets and possibly output_mask
+		:param graph_folder_path: new directory for saving the graph
+		:param g: graph of type GraphObject to be saved
+		:param save_set_mask: (bool) if True, save also g.set_mask, by default a graph is loaded with set_mask==ones
+		:param format: param to be passed to np.save
+		"""
+		import shutil
+		if graph_folder_path[-1] != '/': graph_folder_path+='/'
+		if os.path.exists(graph_folder_path): shutil.rmtree(graph_folder_path)
+		os.makedirs(graph_folder_path)
+		np.save(graph_folder_path + "arcs.npy", g.arcs)
+		np.save(graph_folder_path + "nodes.npy", g.nodes)
+		np.save(graph_folder_path + "targets.npy", g.targets)
+		if save_set_mask: np.save(graph_folder_path + 'set_mask.npy', g.set_mask)
+		if not all(g.output_mask): np.save(graph_folder_path + "output_mask.npy", g.output_mask)
+		if g.problem_based == 'g' and g.targets.shape[0]>1: np.save(graph_folder_path + 'NodeGraph.npy', g.NodeGraph)
+
+	# -----------------------------------------------------------------------------------------------------------------
+	@staticmethod
+	def load(graph_folder_path:str, *, problem_based:str, node_aggregation:str):
+		""" Load a graph from a directory which contains at least 3 txt files referring to nodes, arcs and targets
+		:param graph_folder_path: directory containing at least 3 files: 'nodes.npy', 'arcs.npy' and 'targets.npy'
+			> other possible files: 'NodeGraph.npy','output_mask.npy' and 'set_mask.npy'. No other files required!
+		:param node_aggregation: node aggregation mode: 'average','sum','normalized'. Go to BuildArcNode for details
+		:param problem_based: (str) : 'n'-nodeBased; 'a'-arcBased; 'g'-graphBased
+			> NOTE For graph_based problems, file 'NodeGraph.txt' has to be present in folder
+		:return: GraphObject described by the files contained inside <graph_folder_path> folder
+		"""
+		# load all the files inside <graph_folder_path> folder
+		if graph_folder_path[-1] != '/': graph_folder_path += '/'
+		files = sorted(os.listdir(graph_folder_path))
+		keys = [i.rsplit('.')[0] for i in files]+['problem_based', 'node_aggregation']
+		vals = [np.load(graph_folder_path+i) for i in files] + [problem_based, node_aggregation]
+		# create a dictionary with parameters and values to be passed to constructor and return GraphObject
+		params = dict(zip(keys,vals))
+		return GraphObject(**params)
+
+	# -----------------------------------------------------------------------------------------------------------------
+	@staticmethod
+	def savetxt(graph_folder_path: str, g, *, save_set_mask: bool = False, format: str = '%.10g'):
+		""" Save a graph to a directory, creating txt files referring to nodes, arcs, targets and possibly output_mask
+		:param graph_folder_path: new directory for saving the graph
+		:param g: graph of type GraphObject to be saved
+		:param save_set_mask: (bool) if True, save also g.set_mask, by default a graph is loaded with set_mask==ones
+		:param format: param to be passed to np.savetxt
+		"""
+		import shutil
+		if graph_folder_path[-1] != '/': graph_folder_path += '/'
+		if os.path.exists(graph_folder_path): shutil.rmtree(graph_folder_path)
+		os.makedirs(graph_folder_path)
+		np.savetxt(graph_folder_path + "arcs.txt", g.arcs, fmt=format, delimiter=',')
+		np.savetxt(graph_folder_path + "nodes.txt", g.nodes, fmt=format, delimiter=',')
+		np.savetxt(graph_folder_path + "targets.txt", g.targets, fmt=format, delimiter=',')
+		if save_set_mask: np.savetxt(graph_folder_path + 'set_mask.txt', g.set_mask, fmt=format, delimiter=',')
+		if not all(g.output_mask): np.savetxt(graph_folder_path + "output_mask.txt", g.output_mask, fmt=format, delimiter=',')
+		if g.problem_based == 'g' and g.targets.shape[0] > 1: np.savetxt(graph_folder_path + 'NodeGraph.txt', g.NodeGraph, fmt=format, delimiter=',')
+
+	# -----------------------------------------------------------------------------------------------------------------
+	@staticmethod
+	def loadtxt(graph_folder_path:str, *, problem_based:str, node_aggregation:str):
 		""" Load a graph from a directory which contains at least 3 txt files referring to nodes, arcs and targets
 		:param graph_folder_path: directory containing at least 3 files: 'nodes.txt', 'arcs.txt' and 'targets.txt'
 			> other possible files: 'NodeGraph.txt','output_mask.txt' and 'set_mask.txt'. No other files required!
@@ -138,30 +199,7 @@ class GraphObject:
 		# create a dictionary with parameters and values to be passed to constructor and return GraphObject
 		params = dict(zip(keys,vals))
 		return GraphObject(**params)
-	
-	# -----------------------------------------------------------------------------------------------------------------
-	@staticmethod
-	def save(graph_folder_path:str, g, *, save_set_mask:bool=False, format:str='%.10g'):
-		""" Save a graph to a directory, creating txt files referring to nodes, arcs, targets and possibly output_mask
-		:param graph_folder_path: new directory for saving the graph
-		:param g: graph of type GraphObject to be saved
-		:param save_set_mask: (bool) if True, save also g.set_mask, by default a graph is loaded with set_mask==ones
-		:param format: param to be passed to np.savetxt
-		"""
-		import shutil
-		if graph_folder_path[-1] != '/': graph_folder_path+='/'
-		if os.path.exists(graph_folder_path): shutil.rmtree(graph_folder_path)
-		os.makedirs(graph_folder_path)
-		np.savetxt(graph_folder_path + "arcs.txt", g.arcs, fmt=format, delimiter=',')
-		np.savetxt(graph_folder_path + "nodes.txt", g.nodes, fmt=format, delimiter=',')
-		np.savetxt(graph_folder_path + "targets.txt", g.targets, fmt=format, delimiter=',')
-		if save_set_mask:
-			np.savetxt(graph_folder_path + 'set_mask.txt', g.set_mask, fmt=format, delimiter=',')
-		if not np.array_equal(g.output_mask, np.ones(len(g.output_mask))):
-			np.savetxt(graph_folder_path + "out_mask.txt", g.output_mask, fmt=format, delimiter=',')
-		if g.problem_based == 'g' and g.targets.shape[0]>1:
-			np.savetxt(graph_folder_path + 'NodeGraph.txt', g.NodeGraph, fmt=format, delimiter=',')
-			
+
 	# -----------------------------------------------------------------------------------------------------------------
 	@staticmethod
 	def merge(glist, node_aggregation:str):
