@@ -109,7 +109,9 @@ class GNNnodeBased(BaseGNN):
     def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]], training: bool) -> tuple:
         # get targets
         targs = tf.constant(g.getTargets(), dtype=tf.float32)
-        if g.problem_based != 'g': targs = targs[tf.logical_and(g.getSetMask(), g.getOutputMask())]
+        if g.problem_based != 'g':
+            #targs = targs[tf.logical_and(g.getSetMask(), g.getOutputMask())]
+            targs = tf.boolean_mask(targs, g.getSetMask()[g.getOutputMask()])
 
         # graph processing
         it, _, out = self.Loop(g, training=training)
