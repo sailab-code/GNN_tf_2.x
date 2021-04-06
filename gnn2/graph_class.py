@@ -122,7 +122,7 @@ class GraphObject:
 	
 	## STATIC METHODS #################################################################################################
 	@staticmethod
-	def save(graph_folder_path:str, g, *, save_set_mask:bool=False):
+	def save(graph_folder_path:str, g):#, *, save_set_mask:bool=False):
 		""" Save a graph to a directory, creating txt files referring to nodes, arcs, targets and possibly output_mask
 		:param graph_folder_path: new directory for saving the graph
 		:param g: graph of type GraphObject to be saved
@@ -136,7 +136,7 @@ class GraphObject:
 		np.save(graph_folder_path + "arcs.npy", g.arcs)
 		np.save(graph_folder_path + "nodes.npy", g.nodes)
 		np.save(graph_folder_path + "targets.npy", g.targets)
-		if save_set_mask: np.save(graph_folder_path + 'set_mask.npy', g.set_mask)
+		if not all(g.set_mask): np.save(graph_folder_path + 'set_mask.npy', g.set_mask)
 		if not all(g.output_mask): np.save(graph_folder_path + "output_mask.npy", g.output_mask)
 		if g.problem_based == 'g' and g.targets.shape[0]>1: np.save(graph_folder_path + 'NodeGraph.npy', g.NodeGraph)
 
@@ -162,11 +162,10 @@ class GraphObject:
 
 	# -----------------------------------------------------------------------------------------------------------------
 	@staticmethod
-	def savetxt(graph_folder_path: str, g, *, save_set_mask: bool = False, format: str = '%.10g'):
+	def savetxt(graph_folder_path: str, g, format: str = '%.10g'):
 		""" Save a graph to a directory, creating txt files referring to nodes, arcs, targets and possibly output_mask
 		:param graph_folder_path: new directory for saving the graph
 		:param g: graph of type GraphObject to be saved
-		:param save_set_mask: (bool) if True, save also g.set_mask, by default a graph is loaded with set_mask==ones
 		:param format: param to be passed to np.savetxt
 		"""
 		import shutil
@@ -176,7 +175,7 @@ class GraphObject:
 		np.savetxt(graph_folder_path + "arcs.txt", g.arcs, fmt=format, delimiter=',')
 		np.savetxt(graph_folder_path + "nodes.txt", g.nodes, fmt=format, delimiter=',')
 		np.savetxt(graph_folder_path + "targets.txt", g.targets, fmt=format, delimiter=',')
-		if save_set_mask: np.savetxt(graph_folder_path + 'set_mask.txt', g.set_mask, fmt=format, delimiter=',')
+		if not all(g.set_mask): np.savetxt(graph_folder_path + 'set_mask.txt', g.set_mask, fmt=format, delimiter=',')
 		if not all(g.output_mask): np.savetxt(graph_folder_path + "output_mask.txt", g.output_mask, fmt=format, delimiter=',')
 		if g.problem_based == 'g' and g.targets.shape[0] > 1: np.savetxt(graph_folder_path + 'NodeGraph.txt', g.NodeGraph, fmt=format, delimiter=',')
 
