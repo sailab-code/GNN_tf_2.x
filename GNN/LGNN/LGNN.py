@@ -33,12 +33,12 @@ class LGNN(BaseGNN):
         self.get_output = get_output
         self.gnns = gnns
         self.layers = len(gnns)
-        self.namespace = ['{} - GNN{}'.format(namespace, i) for i in range(self.layers)]
+        self.namespace = [f'{namespace} - GNN{i}' for i in range(self.layers)]
 
         # Change namespace for self.gnns
         for gnn, name in zip(self.gnns, self.namespace):
             gnn.namespace = [name]
-            gnn.path_writer = self.path_writer + name + '/'
+            gnn.path_writer = f'{self.path_writer}{name}/'
 
     # -----------------------------------------------------------------------------------------------------------------
     def copy(self, *, path_writer: str = '', namespace: str = '', copy_weights: bool = True) -> 'LGNN':
@@ -48,6 +48,27 @@ class LGNN(BaseGNN):
                               extra_metrics_arguments=self.mt_args, path_writer=path_writer if path_writer else self.path_writer + '_copied/',
                               namespace=namespace if namespace else 'LGNN')
 
+    ## SAVE AND LOAD METHODs ##########################################################################################
+    def save(self, path: str):
+        import pickle
+        if path[-1] != '/': path += '/'
+        for i, gnn in enumerate(self.gnns): gnn.save(f'{path}GNN{i}/')
+        config = {'get_state': self.get_state, 'get_output': self.get_output, 'optimizer': self.optimizer, 'loss_function': self.loss_function,
+                  'loss_arguments': self.loss_args, 'addressed_problem': self.addressed_problem, 'extra_metrics': self.extra_metrics,
+                  'extra_metrics_arguments': self.mt_args}
+        with open(f'{path}config.pkl', 'wb') as pickle_file:
+            pickle.dump(config, pickle_file)
+
+    @staticmethod
+    def load(path: str, path_writer: str, namespace: str = 'LGNN'):
+        import os, pickle
+        if path[-1] != '/': path += '/'
+        if path_writer[-1] != '/': path_writer += '/'
+        with open(f'{path}config.pkl', 'rb') as pickle_file:
+            config = pickle.load(pickle_file)
+        gnns = [GNNnodeBased.load(f'{path}{i}', path_writer=f'{path_writer}{namespace} - GNN{i}/', namespace='GNN')
+                for i in os.listdir(path) if os.path.isdir(f'{path}{i}')]
+        return LGNN(gnns=gnns, path_writer=path_writer, namespace=namespace, **config)
 
     ## GETTERS AND SETTERS METHODs ####################################################################################
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:
@@ -64,7 +85,6 @@ class LGNN(BaseGNN):
             gnn.net_state.set_weights(wst)
             gnn.net_output.set_weights(wout)
 
-
     ## CALL/PREDICT METHOD ############################################################################################
     def __call__(self, g: GraphObject) -> tf.Tensor:
         """ return ONLY the LGNN output for graph g of type GraphObject """
@@ -72,23 +92,20 @@ class LGNN(BaseGNN):
         return self.gnns[-1].output_activation(out)
 
     # -----------------------------------------------------------------------------------------------------------------
-    def predict(self, g: GraphObject, idx:Union[int, list[int], range]=-1) -> Union[tf.Tensor, list[tf.Tensor]]:
-        if type(idx)==int: assert idx in range(-self.layers, self.layers)
-        elif isinstance(idx, (list, range)): assert all(i in range(-self.layers, self.layers) for i in idx) and list(idx)==sorted(idx)
+    def predict(self, g: GraphObject, idx: Union[int, list[int], range] = -1) -> Union[tf.Tensor, list[tf.Tensor]]:
+        if type(idx) == int: assert idx in range(-self.layers, self.layers)
+        elif isinstance(idx, (list, range)): assert all(i in range(-self.layers, self.layers) for i in idx) and list(idx) == sorted(idx)
         else: raise ValueError('param <idx> must be int or list of int in range(-self.layers, self.layers)')
 
         # get only outputs, without iteration and states
-        out = [gnn.output_activation(o) for gnn,o in zip(self.gnns, self.Loop(g, training=False)[-1])]
-        return out[idx] if type(idx)==int else [out[i] for i in idx]
-
+        out = [gnn.output_activation(o) for gnn, o in zip(self.gnns, self.Loop(g, training=False)[-1])]
+        return out[idx] if type(idx) == int else [out[i] for i in idx]
 
     ## EVALUATE METHODS ###############################################################################################
     def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]], training: bool) -> tuple:
         # get targets
         targs = tf.constant(g.getTargets(), dtype=tf.float32)
-        if g.problem_based != 'g':
-            #targs = targs[tf.logical_and(g.getSetMask(), g.getOutputMask())]
-            targs = tf.boolean_mask(targs, g.getSetMask()[g.getOutputMask()])
+        if g.problem_based != 'g': targs = tf.boolean_mask(targs, g.getSetMask()[g.getOutputMask()])
 
         # graph processing
         it, _, out = self.Loop(g, training=training)
@@ -100,7 +117,6 @@ class LGNN(BaseGNN):
         # Add a residual connection to the lgnn output, s.t. outputs are merged and then are processed by last output activation
         out = tf.reduce_sum(out, axis=0)
         return it, loss, targs, self.gnns[-1].output_activation(out)
-
 
     ## LOOP METHODS ###################################################################################################
     def update_labels(self, g: GraphObject, state: Union[tf.Tensor, array], output: Union[tf.Tensor, array]) \
@@ -142,7 +158,6 @@ class LGNN(BaseGNN):
 
         k, state, out = self.gnns[-1].Loop(g, nodeplus=nodeplus, arcplus=arcplus, training=training)
         return K + [k], state, outs + [out]
-
 
     ## TRAINING METHOD ################################################################################################
     def train(self, gTr: Union[GraphObject, list[GraphObject]], epochs: int, gVa: Union[GraphObject, list[GraphObject], None] = None,

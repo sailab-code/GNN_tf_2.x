@@ -83,6 +83,31 @@ class GNNnodeBased(BaseGNN):
                               path_writer=path_writer if path_writer else self.path_writer + '_copied/',
                               namespace=namespace if namespace else 'GNN')
 
+    ## SAVE AND LOAD METHODs ##########################################################################################
+    def save(self, path : str):
+        import pickle
+        if path[-1] != '/': path +='/'
+        tf.keras.models.save_model(self.net_state,  f'{path}net_state/')
+        tf.keras.models.save_model(self.net_output, f'{path}net_output/')
+        config = {'class':self.__class__, 'loss_function': self.loss_function, 'loss_arguments': self.loss_args,
+                  'output_activation': self.output_activation, 'extra_metrics': self.extra_metrics, 'extra_metrics_arguments': self.mt_args,
+                  'optimizer': self.optimizer, 'max_iteration': self.max_iteration, 'threshold': self.state_threshold,
+                  'addressed_problem': self.addressed_problem, 'state_vect_dim': self.state_vect_dim}
+        with open(f'{path}config.pkl','wb') as pickle_file:
+            pickle.dump(config, pickle_file)
+
+    # -----------------------------------------------------------------------------------------------------------------
+    @staticmethod
+    def load(path: str, path_writer: str, namespace: str = 'GNN'):
+        import pickle
+        if path[-1] != '/': path += '/'
+        if path_writer[-1] != '/': path_writer += '/'
+        with open(f'{path}config.pkl', 'rb') as pickle_file:
+            config = pickle.load(pickle_file)
+        classGNN = config.pop('class')
+        netS = tf.keras.models.load_model(f'{path}net_state/',  compile=False)
+        netO = tf.keras.models.load_model(f'{path}net_output/', compile=False)
+        return classGNN(net_state = netS, net_output=netO, path_writer=path_writer, namespace=namespace, **config)
 
     ## GETTERS AND SETTERS METHODs ####################################################################################
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:
@@ -109,9 +134,7 @@ class GNNnodeBased(BaseGNN):
     def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]], training: bool) -> tuple:
         # get targets
         targs = tf.constant(g.getTargets(), dtype=tf.float32)
-        if g.problem_based != 'g':
-            #targs = targs[tf.logical_and(g.getSetMask(), g.getOutputMask())]
-            targs = tf.boolean_mask(targs, g.getSetMask()[g.getOutputMask()])
+        if g.problem_based != 'g':  targs = tf.boolean_mask(targs, g.getSetMask()[g.getOutputMask()])
 
         # graph processing
         it, _, out = self.Loop(g, training=training)
