@@ -49,7 +49,6 @@ class BaseGNN(ABC):
         # history object (dict) - to summarize the training process, initialized as empty dict
         self.history = dict()
 
-
     ## ABSTRACT METHODS ###############################################################################################
     @abstractmethod
     def copy(self, *, path_writer: str = '', namespace: str = '', copy_weights: bool = True):
@@ -69,6 +68,15 @@ class BaseGNN(ABC):
 
     @abstractmethod
     def Loop(self, g: GraphObject, *, nodeplus=None, arcplus=None, training: bool = False) -> tuple[int, tf.Tensor, tf.Tensor]:
+        pass
+
+    @abstractmethod
+    def save(self, path: str):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def load(path: str, path_writer: str, namespace: str):
         pass
 
 
