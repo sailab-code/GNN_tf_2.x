@@ -4,6 +4,8 @@ import tensorflow as tf
 from sklearn import metrics as mt
 
 
+
+
 #######################################################################################################################
 ### METRICS ###########################################################################################################
 #######################################################################################################################
@@ -60,8 +62,8 @@ def recall_score(y_true, y_pred, avg='binary', pos_label=0):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def roc_curve(y_test_col, y_score_col):
-    return mt.roc_curve(y_test_col, y_score_col)
+def roc_curve(y_test_col, y_score_col,pos_label=0):
+    return mt.roc_curve(y_test_col, y_score_col, pos_label=pos_label)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -151,19 +153,19 @@ def plot_prisofs(recall, precision, avg_precision, savedir, *, line_width=1.5, c
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def ROC(y_test, y_score, savedir='', macro_and_micro: bool = False):
+def ROC(y_test, y_score, savedir='', macro_and_micro: bool = False, pos_label=0):
     """ Receiver Operating Characteristic curve: process and plot/save """
     n_classes = y_test.shape[1]
     fpr, tpr, roc_auc = dict(), dict(), dict()
     for i in range(n_classes):
-        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
+        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i], pos_label=pos_label)
         roc_auc[i] = auc(fpr[i], tpr[i])
     if macro_and_micro == True:
         # flatten the matrices to obtain a single array
         y_test = tf.keras.backend.flatten(y_test)
         y_score = tf.keras.backend.flatten(y_score)
         # Compute micro-average ROC curve and ROC area
-        fpr["micro"], tpr["micro"], _ = roc_curve(y_test, y_score)
+        fpr["micro"], tpr["micro"], _ = roc_curve(y_test, y_score, pos_label=pos_label)
         roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
         # First aggregate all false positive rates
         all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
@@ -179,10 +181,16 @@ def ROC(y_test, y_score, savedir='', macro_and_micro: bool = False):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def PRISOFS(targs, y_score, savedir=''):
+def PRISOFS(targs, y_score, savedir='', pos_label=0):
     """ Precision, Recall and ISO FScore curve: process and plot/save """
     precision, recall, average_precision_score = dict(), dict(), dict()
     for i in range(targs.shape[1]):
-        precision[i], recall[i], _ = precision_recall_curve(targs[:, i], y_score[:, i])
-        average_precision_score[i] = avg_precision_score(targs[:, i], y_score[:, i], avg=None)
+        precision[i], recall[i], _ = precision_recall_curve(targs[:, i], y_score[:, i], pos_label=pos_label)
+        average_precision_score[i] = avg_precision_score(targs[:, i], y_score[:, i], avg=None, pos_label=pos_label)
     plot_prisofs(recall, precision, average_precision_score, savedir)
+
+
+######
+Metrics = {'Acc': accuracy_score, 'Bacc': balanced_accuracy_score, 'Js': jaccard_score,
+           'Ck': cohen_kappa_score, 'Prec': precision_score, 'Rec': recall_score,
+           'Fs': fbscore, 'Tpr': TPR, 'Tnr': TNR, 'Fpr': FPR, 'Fnr': FNR}
