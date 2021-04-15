@@ -17,8 +17,8 @@ class GraphObject:
                  NodeGraph=None,
                  ArcNode=None,
                  node_aggregation: str = "average"):
-        """
-        CONSTRUCTOR METHOD
+        """ CONSTRUCTOR METHOD
+
         :param arcs: Ordered Arcs Matrix where arcs[i] = [ID Node From | ID NodeTo | Arc Label]
         :param nodes: Ordered Nodes Matrix where nodes[i] = [ID Node | Node Label]
         :param targets: Targets Array with shape (Num of targeted example [nodes or arcs], dim_target example)
@@ -56,6 +56,7 @@ class GraphObject:
     # -----------------------------------------------------------------------------------------------------------------
     def copy(self):
         """ COPY METHOD
+
         :return: a Deep Copy of the Graph Object instance.
         """
         return GraphObject(arcs=self.getArcs(), nodes=self.getNodes(), targets=self.getTargets(),
@@ -73,7 +74,9 @@ class GraphObject:
     # -----------------------------------------------------------------------------------------------------------------
     def buildArcNode(self, node_aggregation: str):
         """ Build ArcNode Matrix A of shape (number_of_arcs, number_of_nodes) where A[i,j]=value if arc[i,2]==node[j]
+
         Compute the matmul(m:=message,A) to get the incoming message on each node
+
         :param node_aggregation: (str) It defines the aggregation mode for the incoming message of a node:
             > 'average': elem(A)={0-1} -> matmul(m,A) gives the average of incoming messages, s.t. sum(A[:,i])=1
             > 'normalized': elem(A)={0-1} -> matmul(m,A) gives the normalized message wrt the total number of g.nodes
@@ -114,6 +117,7 @@ class GraphObject:
     # -----------------------------------------------------------------------------------------------------------------
     def save(self, graph_folder_path: str) -> None:
         """ save graph in folder
+
         :param graph_folder_path: (str) folder path for saving the graph
         """
         GraphObject.save_graph(graph_folder_path, self)
@@ -121,45 +125,28 @@ class GraphObject:
     # -----------------------------------------------------------------------------------------------------------------
     def savetxt(self, graph_folder_path: str, format: str = '%.10g') -> None:
         """ save graph in folder
+
         :param graph_folder_path: (str) folder path for saving the graph
         """
         GraphObject.save_txt(graph_folder_path, self, format)
 
     ## GETTERS ########################################################################################################
-    def getArcs(self):
-        return self.arcs.copy()
-
-    def getNodes(self):
-        return self.nodes.copy()
-
-    def getTargets(self):
-        return self.targets.copy()
-
-    def getProblemBased(self):
-        return self.problem_based[:]
-
-    def getSetMask(self):
-        return self.set_mask.copy()
-
-    def getOutputMask(self):
-        return self.output_mask.copy()
-
-    def getAdjacency(self):
-        return self.Adjacency.copy()
-
-    def getArcNode(self):
-        return self.ArcNode.copy()
-
-    def getNodeGraph(self):
-        return self.NodeGraph.copy()
-
-    def initState(self, v: int = 0):
-        return np.zeros((self.nodes.shape[0], v)) if v > 0 else self.nodes.copy()
+    def getArcs(self):                  return self.arcs.copy()
+    def getNodes(self):                 return self.nodes.copy()
+    def getTargets(self):               return self.targets.copy()
+    def getProblemBased(self):          return self.problem_based[:]
+    def getSetMask(self):               return self.set_mask.copy()
+    def getOutputMask(self):            return self.output_mask.copy()
+    def getAdjacency(self):             return self.Adjacency.copy()
+    def getArcNode(self):               return self.ArcNode.copy()
+    def getNodeGraph(self):             return self.NodeGraph.copy()
+    def initState(self, v: int = 0):    return np.zeros((self.nodes.shape[0], v)) if v > 0 else self.nodes.copy()
 
     ## CLASS METHODs ##################################################################################################
     @classmethod
     def save_graph(self, graph_folder_path: str, g):
         """ Save a graph to a directory, creating txt files referring to nodes, arcs, targets and possibly output_mask
+
         :param graph_folder_path: new directory for saving the graph
         :param g: graph of type GraphObject to be saved
         """
@@ -180,6 +167,7 @@ class GraphObject:
     @classmethod
     def save_txt(self, graph_folder_path: str, g, format: str = '%.10g'):
         """ Save a graph to a directory, creating txt files referring to nodes, arcs, targets and possibly output_mask
+
         :param graph_folder_path: new directory for saving the graph
         :param g: graph of type GraphObject to be saved
         :param format: param to be passed to np.savetxt
@@ -200,12 +188,13 @@ class GraphObject:
     # -----------------------------------------------------------------------------------------------------------------
     @classmethod
     def load(self, graph_folder_path: str, *, problem_based: str, node_aggregation: str):
-        """ Load a graph from a directory which contains at least 3 txt files referring to nodes, arcs and targets
+        """ Load a graph from a directory which contains at least 3 numpy files referring to nodes, arcs and targets
+
         :param graph_folder_path: directory containing at least 3 files: 'nodes.npy', 'arcs.npy' and 'targets.npy'
             > other possible files: 'NodeGraph.npy','output_mask.npy' and 'set_mask.npy'. No other files required!
         :param node_aggregation: node aggregation mode: 'average','sum','normalized'. Go to BuildArcNode for details
         :param problem_based: (str) : 'n'-nodeBased; 'a'-arcBased; 'g'-graphBased
-            > NOTE For graph_based problems, file 'NodeGraph.txt' has to be present in folder
+            > NOTE For graph_based problems, file 'NodeGraph.npy' has to be present in folder
         :return: GraphObject described by the files contained inside <graph_folder_path> folder
         """
         # load all the files inside <graph_folder_path> folder
@@ -221,11 +210,12 @@ class GraphObject:
     @classmethod
     def load_txt(self, graph_folder_path: str, *, problem_based: str, node_aggregation: str):
         """ Load a graph from a directory which contains at least 3 txt files referring to nodes, arcs and targets
+
         :param graph_folder_path: directory containing at least 3 files: 'nodes.txt', 'arcs.txt' and 'targets.txt'
             > other possible files: 'NodeGraph.txt','output_mask.txt' and 'set_mask.txt'. No other files required!
-        :param node_aggregation: node aggregation mode: 'average','sum','normalized'. Go to BuildArcNode for details
         :param problem_based: (str) : 'n'-nodeBased; 'a'-arcBased; 'g'-graphBased
             > NOTE For graph_based problems, file 'NodeGraph.txt' has to be present in folder
+        :param node_aggregation: node aggregation mode: 'average','sum','normalized'. Go to BuildArcNode for details
         :return: GraphObject described by the files contained inside <graph_folder_path> folder
         """
         # load all the files inside <graph_folder_path> folder
@@ -241,6 +231,7 @@ class GraphObject:
     @classmethod
     def merge(self, glist, node_aggregation: str):
         """ Method to merge graphs: it takes in input a list of graphs and returns them as a single graph
+
         :param glist: list of GraphObjects
             > NOTE If glist[:].problem_based=='g', NodeGraph will have dimension (Num nodes, Num graphs), else (Num nodes,1)
         :param node_aggregation: str, node aggregation mode for new GraphObject
