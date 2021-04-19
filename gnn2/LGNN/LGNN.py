@@ -38,6 +38,10 @@ class LGNN(BaseGNN):
         :param path_writer: (str) path for saving TensorBoard objects
         :param namespace: (str) namespace for tensorboard visualization
         """
+
+        GNNS_TYPE = set([type(i) for i in gnns])
+        if len(GNNS_TYPE) != 1: raise TypeError('parameter <gnn> must contain gnns of the same type')
+
         # BaseGNN constructor
         super().__init__(optimizer, loss_function, loss_arguments, addressed_problem, extra_metrics, extra_metrics_arguments, path_writer,
                          namespace)
@@ -46,14 +50,18 @@ class LGNN(BaseGNN):
         self.get_state = get_state
         self.get_output = get_output
         self.gnns = gnns
-        self.layers = len(gnns)
-        self.namespace = [f'{namespace} - GNN{i}' for i in range(self.layers)]
+        self.LAYERS = len(gnns)
+        self.GNNS_TYPE = list(GNNS_TYPE)[0]
+        self.namespace = [f'{namespace} - GNN{i}' for i in range(self.LAYERS)]
         self.training_mode = None
 
         # Change namespace for self.gnns
         for gnn, name in zip(self.gnns, self.namespace):
             gnn.namespace = [name]
             gnn.path_writer = f'{self.path_writer}{name}/'
+
+    def get_graph_target(self, g):
+        return self.GNNS_TYPE.get_graph_target(g)
 
     # -----------------------------------------------------------------------------------------------------------------
     def copy(self, *, path_writer: str = '', namespace: str = '', copy_weights: bool = True) -> 'LGNN':
@@ -83,11 +91,12 @@ class LGNN(BaseGNN):
         for i, gnn in enumerate(self.gnns): gnn.save(f'{path}GNN{i}/')
 
         # save configuration file in json format
+        gnns_type = {GNNnodeBased:'n', GNNedgeBased:'a', GNNgraphBased:'g' }
         config = {'get_state': self.get_state, 'get_output': self.get_output,
                   'loss_function': tf.keras.losses.serialize(self.loss_function), 'loss_arguments': self.loss_args,
-                  'optimizer': tf.keras.optimizers.serialize(self.optimizer),
+                  'optimizer': str(tf.keras.optimizers.serialize(self.optimizer)),
                   'extra_metrics': list(self.extra_metrics), 'extra_metrics_arguments': self.mt_args,
-                  'addressed_problem': self.addressed_problem}
+                  'addressed_problem': self.addressed_problem, 'gnns_type': gnns_type[self.GNNS_TYPE]}
 
         with open(f'{path}config.json', 'w') as json_file:
             dump(config, json_file)
@@ -111,16 +120,18 @@ class LGNN(BaseGNN):
         if path[-1] != '/': path += '/'
         if path_writer[-1] != '/': path_writer += '/'
 
-        # load GNNs
-        gnns = [GNNnodeBased.load(f'{path}{i}', path_writer=f'{path_writer}{namespace} - GNN{i}/', namespace='GNN')
-                for i in listdir(path) if isdir(f'{path}{i}')]
-
         # load configuration file
         with open(f'{path}config.json', 'r') as read_file:
             config = loads(read_file.read())
 
+        # load GNNs
+        gnns_type = {'n':GNNnodeBased, 'a':GNNedgeBased, 'g':GNNgraphBased}
+        gnns_type = gnns_type[config.pop('gnns_type')]
+        gnns = [gnns_type.load(f'{path}{i}', path_writer=f'{path_writer}{namespace} - GNN{i}/', namespace='GNN')
+                for i in listdir(path) if isdir(f'{path}{i}')]
+
         # get optimizer, loss function
-        optz = tf.keras.optimizers.deserialize(config.pop('optimizer'))
+        optz = tf.keras.optimizers.deserialize(eval(config.pop('optimizer')))
         loss = tf.keras.losses.deserialize(config.pop('loss_function'))
 
         # get extra metrics
@@ -141,7 +152,7 @@ class LGNN(BaseGNN):
     # -----------------------------------------------------------------------------------------------------------------
     def set_weights(self, weights_state: list[list[array]], weights_output: list[list[array]]) -> None:
         """ set weights for net_state and net_output for each gnn layer """
-        assert len(weights_state) == len(weights_output) == self.layers
+        assert len(weights_state) == len(weights_output) == self.LAYERS
         for gnn, wst, wout in zip(self.gnns, weights_state, weights_output):
             gnn.net_state.set_weights(wst)
             gnn.net_output.set_weights(wout)
@@ -162,18 +173,19 @@ class LGNN(BaseGNN):
         :return: a list of output(s) of the model processing graph g
         """
         if type(idx) == int:
-            assert idx in range(-self.layers, self.layers)
+            assert idx in range(-self.LAYERS, self.LAYERS)
         elif isinstance(idx, (list, range)):
-            assert all(i in range(-self.layers, self.layers) for i in idx) and list(idx) == sorted(idx)
+            assert all(i in range(-self.LAYERS, self.LAYERS) for i in idx) and list(idx) == sorted(idx)
         else:
-            raise ValueError('param <idx> must be int or list of int in range(-self.layers, self.layers)')
+            raise ValueError('param <idx> must be int or list of int in range(-self.LAYERS, self.LAYERS)')
 
         # get only outputs, without iteration and states
         out = self.Loop(g, training=False)[-1]
         return out[idx] if type(idx) == int else [out[i] for i in idx]
 
     ## EVALUATE METHODS ###############################################################################################
-    def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[int, float], array[int, float]], training: bool) -> tuple:
+    def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[int, float], array[int, float]],
+                              training: bool) -> tuple:
         """
         :param g: (GraphObject) single element GraphObject
         :param class_weights: in classification task, it can be an int, flot, list of ints or floats, compatible with 1hot target matrix (under review)
@@ -181,8 +193,7 @@ class LGNN(BaseGNN):
         :return: (tuple) convergence iteration, loss value, target and output of the model
         """
         # get targets
-        targs = tf.constant(g.getTargets(), dtype=tf.float32)
-        if g.problem_based != 'g': targs = tf.boolean_mask(targs, g.set_mask[g.output_mask])
+        targs = self.get_graph_target(g)
 
         # graph processing
         it, _, out = self.Loop(g, training=training)
@@ -190,7 +201,7 @@ class LGNN(BaseGNN):
         # if class_metrics != 1, else it does not modify loss values
         loss_weight = tf.reduce_sum(class_weights * targs, axis=1)
         if training and self.training_mode == 'residual':
-            loss = self.loss_function(targs, tf.reduce_sum(out, axis=0)) * loss_weight
+            loss = self.loss_function(targs, tf.reduce_mean(out, axis=0), **self.loss_args) * loss_weight
         else:
             loss = tf.reduce_sum([self.loss_function(targs, o, **self.loss_args) * loss_weight for o in out], axis=0)
 
@@ -218,46 +229,21 @@ class LGNN(BaseGNN):
             # process output to make it shape compatible.
             # Note that what is concatenated is not nodeplus/arcplus, but out, as it has the same length of nodes/arcs
             mask = logical_and(g.set_mask, g.output_mask)
-            row = g.nodes.shape[0] if g.problem_based != 'a' else g.arcs.shape[0]
 
             # define a zero matrix
-            out = zeros((row, g.DIM_TARGET), dtype='float32')
+            row = {GNNnodeBased: g.nodes.shape[0], GNNedgeBased: g.arcs.shape[0], GNNgraphBased: g.nodes.shape[0]}
+            out = zeros((row[self.GNNS_TYPE], g.DIM_TARGET), dtype='float32')
             out[mask] = output
 
-            if g.problem_based != 'a': nodeplus = tf.concat([nodeplus, out], axis=1)
-            else: arcplus = tf.concat([arcplus, out], axis=1)
+            if self.GNNS_TYPE == GNNedgeBased:
+                arcplus = tf.concat([arcplus, out], axis=1)
+            else:
+                nodeplus = tf.concat([nodeplus, out], axis=1)
 
         # nodeplus, arcplus = self.update_labels(g, state, output) ## cancellare riga
         g.nodes = concatenate([g.nodes, nodeplus.numpy()], axis=1)
         g.arcs = concatenate([g.arcs, arcplus.numpy()], axis=1)
         return g
-
-    '''def update_labels(self, g: GraphObject, state: Union[tf.Tensor, array], output: Union[tf.Tensor, array]) \
-            -> tuple[Optional[tf.Tensor], Optional[tf.Tensor]]:
-
-        # define tensors with shape[1]==0 so that it can be concatenate with tf.concat()
-        arcplus, nodeplus = tf.zeros((g.arcs.shape[0], 0), dtype=tf.float32), tf.zeros((g.nodes.shape[0], 0), dtype=tf.float32)
-
-        # check state
-        if self.get_state: nodeplus = tf.concat([nodeplus, state], axis=1)
-
-        # check output
-        if self.get_output:
-            # process output to make it shape compatible.
-            # Note that what is concatenated is not nodeplus/arcplus, but out, as it has the same length of nodes/arcs
-            mask = logical_and(g.set_mask, g.output_mask)
-            row = g.nodes.shape[0] if g.problem_based != 'a' else g.arcs.shape[0]
-
-            # define a zero matrix
-            out = zeros((row, g.DIM_TARGET), dtype='float32')
-            out[mask] = output
-
-            if g.problem_based != 'a':
-                nodeplus = tf.concat([nodeplus, out], axis=1)
-            else:
-                arcplus = tf.concat([arcplus, out], axis=1)
-
-        return nodeplus, arcplus'''
 
     # -----------------------------------------------------------------------------------------------------------------
     def Loop(self, g: GraphObject, *, training: bool = False) -> tuple[list[Union[int, Any]], tf.Tensor, list[Union[tf.Tensor, Any]]]:
@@ -282,7 +268,6 @@ class LGNN(BaseGNN):
 
         k, state, out = self.gnns[-1].Loop(gtmp, training=training)
         return K + [k], state, outs + [out]
-
 
     ## TRAINING METHOD ################################################################################################
     def train(self, gTr: Union[GraphObject, list[GraphObject]], epochs: int, gVa: Union[GraphObject, list[GraphObject], None] = None,
@@ -327,16 +312,16 @@ class LGNN(BaseGNN):
             gTr1, gVa1 = [i.copy() for i in gTr], [i.copy() for i in gVa] if gVa else None
 
             for idx, gnn in enumerate(self.gnns):
-                if verbose in [1, 3]: print('\n\n------------------- GNN{} -------------------\n'.format(idx))
+                if verbose in [1, 3]: print(f'\n\n------------------- GNN{idx} -------------------\n')
 
                 # train the idx-th gnn
                 gnn.train(gTr1, epochs, gVa1, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)
 
                 # extrapolate state and output to update labels
-                _, sTr, oTr = zip(*[gnn.Loop(i) if i.problem_based != 'g' else super(GNNgraphBased, gnn).Loop(i) for i in gTr1])
+                _, sTr, oTr = zip(*[super(GNNgraphBased, gnn).Loop(i) if type(gnn) == GNNgraphBased else gnn.Loop(i) for i in gTr1])
                 gTr1 = [self.update_graph(i, s, o) for i, s, o in zip(gTr, sTr, oTr)]
                 if gVa:
-                    _, sVa, oVa = zip(*[gnn.Loop(i) if i.problem_based != 'g' else super(GNNgraphBased, gnn).Loop(i) for i in gVa1])
+                    _, sVa, oVa = zip(*[super(GNNgraphBased, gnn).Loop(i) if type(gnn) == GNNgraphBased else gnn.Loop(i) for i in gVa1])
                     gVa1 = [self.update_graph(i, s, o) for i, s, o in zip(gVa, sVa, oVa)]
 
         else:
