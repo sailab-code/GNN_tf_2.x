@@ -30,18 +30,17 @@ class GraphObject:
         :param node_aggregation:Define how graph-based problem are faced. Possible values in ['average', 'sum', 'normalized']
         """
         # store arcs, nodes, targets
-        self.arcs = arcs.astype(np.float32)
-        self.nodes = nodes.astype(np.float32)
-        self.targets = targets.astype(np.float32)
+        self.arcs = arcs.astype('float32')
+        self.nodes = nodes.astype('float32')
+        self.targets = targets.astype('float32')
         # store dimensions
         self.DIM_NODE_LABEL = nodes.shape[1]  # first column contains node indices (output_mask is not here!)
         self.DIM_ARC_LABEL = (arcs.shape[1] - 2)  # first two columns contain nodes indices
         self.DIM_TARGET = targets.shape[1]
         # setting the problem type: node, arcs or graph based + check existence of passed parameters in keys
         lenMask = {'n': nodes.shape[0], 'a': arcs.shape[0], 'g': nodes.shape[0]}
-        self.problem_based = problem_based
         # build set_mask, for a dataset composed of only a single graph: its nodes have to be divided in Tr, Va and Te
-        self.set_mask = np.ones(lenMask[self.problem_based], dtype=bool) if set_mask is None else set_mask.astype(bool)
+        self.set_mask = np.ones(lenMask[problem_based], dtype=bool) if set_mask is None else set_mask.astype(bool)
         # build output_mask
         self.output_mask = np.ones(len(self.set_mask), dtype=bool) if output_mask is None else output_mask.astype(bool)
         # check lengths: output_mask must be as long as set_mask
@@ -49,9 +48,9 @@ class GraphObject:
         # build Adjancency Matrix
         self.Adjacency = self.buildAdiacencyMatrix()
         # build ArcNode tensor or acquire it from input
-        self.ArcNode = self.buildArcNode(node_aggregation=node_aggregation) if ArcNode is None else ArcNode.astype(np.float32)
+        self.ArcNode = self.buildArcNode(node_aggregation=node_aggregation) if ArcNode is None else ArcNode.astype('float32')
         # build node_graph conversion matrix
-        self.NodeGraph = self.buildNodeGraph() if NodeGraph is None else NodeGraph.astype(np.float32)
+        self.NodeGraph = self.buildNodeGraph(problem_based) if NodeGraph is None else NodeGraph.astype('float32')
 
     # -----------------------------------------------------------------------------------------------------------------
     def copy(self):
@@ -59,17 +58,17 @@ class GraphObject:
 
         :return: a Deep Copy of the Graph Object instance.
         """
-        return GraphObject(arcs=self.getArcs(), nodes=self.getNodes(), targets=self.getTargets(),
-                           problem_based=self.getProblemBased(), set_mask=self.getSetMask(),
+
+        return GraphObject(arcs=self.getArcs(), nodes=self.getNodes(), targets=self.getTargets(), set_mask=self.getSetMask(),
                            output_mask=self.getOutputMask(), NodeGraph=self.getNodeGraph(), ArcNode=self.getArcNode())
 
     # -----------------------------------------------------------------------------------------------------------------
     def buildAdiacencyMatrix(self):
         """ Build Adjacency Matrix ADJ of the graph, s.t.  ADJ[i,j]=1 if edge (i,j) exists """
         from scipy.sparse import coo_matrix
-        values = np.ones(self.arcs.shape[0], dtype=np.float32)
+        values = np.ones(self.arcs.shape[0], dtype='float32')
         indices = self.arcs[:, :2].astype(int)
-        return coo_matrix((values, (indices[:, 0], indices[:, 1])), shape=(len(self.nodes), len(self.nodes)), dtype=np.float32)
+        return coo_matrix((values, (indices[:, 0], indices[:, 1])), shape=(len(self.nodes), len(self.nodes)), dtype='float32')
 
     # -----------------------------------------------------------------------------------------------------------------
     def buildArcNode(self, node_aggregation: str):
@@ -95,14 +94,14 @@ class GraphObject:
             values_vector = values_vector * float(1 / len(col))
         # isolated nodes correction: if nodes[i] is isolated, then ArcNode[:,i]=0, to maintain nodes ordering
         from scipy.sparse import coo_matrix
-        return coo_matrix((values_vector, (row, self.arcs[:, 1])), shape=(len(self.arcs), len(self.nodes)), dtype=np.float32)
+        return coo_matrix((values_vector, (row, self.arcs[:, 1])), shape=(len(self.arcs), len(self.nodes)), dtype='float32')
 
     # -----------------------------------------------------------------------------------------------------------------
     def setArcNode(self, node_aggregation: str):
         self.ArcNode = self.buildArcNode(node_aggregation=node_aggregation)
 
     # -----------------------------------------------------------------------------------------------------------------
-    def buildNodeGraph(self):
+    def buildNodeGraph(self, problem_based: str):
         """ Build Node-Graph Aggregation Matrix, to transform a node-based problem in a graph-based one.
         It has dimensions (nodes.shape[0], 1) for a single graph, or (nodes.shape[0], Num graphs) for a graph containing
         2+ graphs, built by merging the single graphs into a bigger one, such that after the node-graph aggregation
@@ -111,8 +110,11 @@ class GraphObject:
         :return: node-graph matrix
         """
         # nodes_output_coefficient = np.count_nonzero(self.output_mask)
-        nodes_output_coefficient = self.nodes.shape[0]
-        return np.ones((nodes_output_coefficient, 1), dtype=np.float32) * 1 / nodes_output_coefficient
+        nodegraph = None
+        if problem_based == 'g':
+            nodes_output_coefficient = self.nodes.shape[0]
+            nodegraph = np.ones((nodes_output_coefficient, 1), dtype=np.float32) * 1 / nodes_output_coefficient
+        return nodegraph
 
     # -----------------------------------------------------------------------------------------------------------------
     def save(self, graph_folder_path: str) -> None:
@@ -131,16 +133,30 @@ class GraphObject:
         GraphObject.save_txt(graph_folder_path, self, format)
 
     ## GETTERS ########################################################################################################
-    def getArcs(self):                  return self.arcs.copy()
-    def getNodes(self):                 return self.nodes.copy()
-    def getTargets(self):               return self.targets.copy()
-    def getProblemBased(self):          return self.problem_based[:]
-    def getSetMask(self):               return self.set_mask.copy()
-    def getOutputMask(self):            return self.output_mask.copy()
-    def getAdjacency(self):             return self.Adjacency.copy()
-    def getArcNode(self):               return self.ArcNode.copy()
-    def getNodeGraph(self):             return self.NodeGraph.copy()
-    def initState(self, v: int = 0):    return np.zeros((self.nodes.shape[0], v)) if v > 0 else self.nodes.copy()
+    def getArcs(self):
+        return self.arcs.copy()
+
+    def getNodes(self):
+        return self.nodes.copy()
+
+    def getTargets(self):
+        return self.targets.copy()
+
+    def getSetMask(self):
+        return self.set_mask.copy()
+
+    def getOutputMask(self):
+        return self.output_mask.copy()
+
+    def getAdjacency(self):
+        return self.Adjacency.copy()
+
+    def getArcNode(self):
+        return self.ArcNode.copy()
+
+    def getNodeGraph(self):
+        return None if self.NodeGraph is None else self.NodeGraph.copy()
+
 
     ## CLASS METHODs ##################################################################################################
     @classmethod
@@ -161,7 +177,7 @@ class GraphObject:
         np.save(graph_folder_path + "targets.npy", g.targets)
         if not all(g.set_mask): np.save(graph_folder_path + 'set_mask.npy', g.set_mask)
         if not all(g.output_mask): np.save(graph_folder_path + "output_mask.npy", g.output_mask)
-        if g.problem_based == 'g' and g.targets.shape[0] > 1: np.save(graph_folder_path + 'NodeGraph.npy', g.NodeGraph)
+        if g.NodeGraph is not None and g.targets.shape[0] > 1: np.save(graph_folder_path + 'NodeGraph.npy', g.NodeGraph)
 
     # -----------------------------------------------------------------------------------------------------------------
     @classmethod
@@ -183,18 +199,19 @@ class GraphObject:
         np.savetxt(graph_folder_path + "targets.txt", g.targets, fmt=format, delimiter=',')
         if not all(g.set_mask): np.savetxt(graph_folder_path + 'set_mask.txt', g.set_mask, fmt=format, delimiter=',')
         if not all(g.output_mask): np.savetxt(graph_folder_path + "output_mask.txt", g.output_mask, fmt=format, delimiter=',')
-        if g.problem_based == 'g' and g.targets.shape[0] > 1: np.savetxt(graph_folder_path + 'NodeGraph.txt', g.NodeGraph, fmt=format, delimiter=',')
+        if g.NodeGraph is not None and g.targets.shape[0] > 1: np.savetxt(graph_folder_path + 'NodeGraph.txt', g.NodeGraph, fmt=format,
+                                                                          delimiter=',')
 
     # -----------------------------------------------------------------------------------------------------------------
     @classmethod
-    def load(self, graph_folder_path: str, *, problem_based: str, node_aggregation: str):
+    def load(self, graph_folder_path: str, problem_based: str, node_aggregation: str):
         """ Load a graph from a directory which contains at least 3 numpy files referring to nodes, arcs and targets
 
         :param graph_folder_path: directory containing at least 3 files: 'nodes.npy', 'arcs.npy' and 'targets.npy'
             > other possible files: 'NodeGraph.npy','output_mask.npy' and 'set_mask.npy'. No other files required!
         :param node_aggregation: node aggregation mode: 'average','sum','normalized'. Go to BuildArcNode for details
         :param problem_based: (str) : 'n'-nodeBased; 'a'-arcBased; 'g'-graphBased
-            > NOTE For graph_based problems, file 'NodeGraph.npy' has to be present in folder
+            > NOTE For graph_based problems, file 'NodeGraph.npy' must be present in folder
         :return: GraphObject described by the files contained inside <graph_folder_path> folder
         """
         # load all the files inside <graph_folder_path> folder
@@ -208,13 +225,13 @@ class GraphObject:
 
     # -----------------------------------------------------------------------------------------------------------------
     @classmethod
-    def load_txt(self, graph_folder_path: str, *, problem_based: str, node_aggregation: str):
+    def load_txt(self, graph_folder_path: str, problem_based: str, node_aggregation: str):
         """ Load a graph from a directory which contains at least 3 txt files referring to nodes, arcs and targets
 
         :param graph_folder_path: directory containing at least 3 files: 'nodes.txt', 'arcs.txt' and 'targets.txt'
             > other possible files: 'NodeGraph.txt','output_mask.txt' and 'set_mask.txt'. No other files required!
         :param problem_based: (str) : 'n'-nodeBased; 'a'-arcBased; 'g'-graphBased
-            > NOTE For graph_based problems, file 'NodeGraph.txt' has to be present in folder
+            > NOTE For graph_based problems, file 'NodeGraph.txt' must to be present in folder
         :param node_aggregation: node aggregation mode: 'average','sum','normalized'. Go to BuildArcNode for details
         :return: GraphObject described by the files contained inside <graph_folder_path> folder
         """
@@ -229,7 +246,7 @@ class GraphObject:
 
     # -----------------------------------------------------------------------------------------------------------------
     @classmethod
-    def merge(self, glist, node_aggregation: str):
+    def merge(self, glist, problem_based: str, node_aggregation: str):
         """ Method to merge graphs: it takes in input a list of graphs and returns them as a single graph
 
         :param glist: list of GraphObjects
@@ -240,15 +257,11 @@ class GraphObject:
         # check parameters
         if not (type(glist) == list and all(isinstance(x, (GraphObject, str)) for x in glist)):
             raise TypeError('type of param <glist> must be list of str \'path-like\' or GraphObjects')
-        # check problem_based parameter for all the graphs
-        problem_based_set = list(set([i.problem_based for i in glist]))
-        if len(problem_based_set) != 1 or problem_based_set[0] not in ['n', 'a', 'g']:
-            raise ValueError('All graphs in <glist> must have the same <g.problem_based> parameter')
-        # retrieve matrices from graph list
-        problem_based = problem_based_set.pop()
-        nodes, nodes_lens, arcs, targets, set_mask, output_mask, nodegraph = zip(*[(i.getNodes(), i.nodes.shape[0], i.getArcs(), i.getTargets(),
-                                                                                    i.getSetMask(), i.getOutputMask(), i.getNodeGraph())
-                                                                                   for i in glist])
+
+        nodes, nodes_lens, arcs, targets, set_mask, output_mask, nodegraph_list = zip(
+            *[(i.getNodes(), i.nodes.shape[0], i.getArcs(), i.getTargets(),
+               i.getSetMask(), i.getOutputMask(), i.getNodeGraph())
+              for i in glist])
         # get single matrices for new graph
         for i, elem in enumerate(arcs): elem[:, :2] += sum(nodes_lens[:i])
         arcs = np.concatenate(arcs, axis=0)
@@ -256,8 +269,12 @@ class GraphObject:
         targets = np.concatenate(targets, axis=0)
         set_mask = np.concatenate(set_mask, axis=0)
         output_mask = np.concatenate(output_mask, axis=0)
-        from scipy.linalg import block_diag
-        nodegraph = None if problem_based != 'g' else block_diag(*nodegraph)
+
+        nodegraph = None
+        if problem_based == 'g':
+            from scipy.linalg import block_diag
+            nodegraph = block_diag(*nodegraph_list)
+
         # resulting GraphObject
         return self(arcs=arcs, nodes=nodes, targets=targets, set_mask=set_mask, output_mask=output_mask,
                     problem_based=problem_based, NodeGraph=nodegraph, node_aggregation=node_aggregation)

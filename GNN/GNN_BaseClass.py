@@ -5,6 +5,7 @@ import shutil
 from abc import ABC, abstractmethod
 from typing import Union, Optional
 
+import numpy as np
 import tensorflow as tf
 from numpy import array
 from pandas import DataFrame
@@ -51,10 +52,12 @@ class BaseGNN(ABC):
         self.extra_metrics = dict() if extra_metrics is None else extra_metrics
         self.mt_args = dict() if extra_metrics_arguments is None else extra_metrics_arguments
 
-        # Writer for Tensorboard - Nets histograms and Distributions
-        self.path_writer = path_writer if path_writer[-1] == '/' else path_writer + '/'
-        if os.path.exists(self.path_writer): shutil.rmtree(self.path_writer)
-        self.namespace = namespace if type(namespace) == list else [namespace]
+        # Writer and Namespace for Tensorboard - Nets histograms and Distributions
+        if path_writer[-1] != '/': path_writer += '/'
+        if type(namespace) != list: namespace = [namespace]
+        if os.path.exists(path_writer): shutil.rmtree(path_writer)
+        self.path_writer = path_writer
+        self.namespace = namespace
 
         # history object (dict) - to summarize the training process, initialized as empty dict
         self.history = dict()
@@ -98,7 +101,8 @@ class BaseGNN(ABC):
         pass
 
     @abstractmethod
-    def set_weights(self, weights_state: Union[list[array], list[list[array]]], weights_output: Union[list[array], list[list[array]]]) -> None:
+    def set_weights(self, weights_state: Union[list[array], list[list[array]]],
+                    weights_output: Union[list[array], list[list[array]]]) -> None:
         """ set weights for net_state and net_output """
         pass
 
@@ -106,7 +110,6 @@ class BaseGNN(ABC):
     def Loop(self, g: GraphObject, *, training: bool = False) -> tuple[int, tf.Tensor, tf.Tensor]:
         """ process a single graph, returning iteration, states and output """
         pass
-
 
     ## HISTORY METHOD #################################################################################################
     def printHistory(self) -> None:
@@ -134,7 +137,7 @@ class BaseGNN(ABC):
         pass
 
     # -----------------------------------------------------------------------------------------------------------------
-    def evaluate(self, g: Union[GraphObject, list[GraphObject]], class_weights: Union[int, float, list[float]]=1) -> tuple:
+    def evaluate(self, g: Union[GraphObject, list[GraphObject]], class_weights: Union[int, float, list[float]] = 1) -> tuple:
         """ return ALL the metrics in self.extra_metrics + Iter & Loss for a GraphObject or a list of GraphObjects
         :param g: element/list of GraphObject to be evaluated
         :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss
@@ -144,23 +147,22 @@ class BaseGNN(ABC):
         if not (type(g) == GraphObject or (type(g) == list and all(isinstance(x, GraphObject) for x in g))):
             raise TypeError('type of param <g> must be GraphObject or list of GraphObjects')
         if type(g) == GraphObject: g = [g]
-        
+
         # process input data
         iters, losses, targets, outs = zip(*[self.evaluate_single_graph(i, class_weights, training=False) for i in g])
-        
+
         # concatenate all the values from every graph and take clas labels or values
         loss = tf.concat(losses, axis=0)
         targets = tf.concat(targets, axis=0)
         y_score = tf.concat(outs, axis=0)
         y_true = tf.argmax(targets, axis=1) if self.addressed_problem == 'c' else targets
         y_pred = tf.argmax(y_score, axis=1) if self.addressed_problem == 'c' else y_score
-        
+
         # evaluate metrics
         metr = {k: float(self.extra_metrics[k](y_true, y_pred, **self.mt_args.get(k, dict()))) for k in self.extra_metrics}
         metr['It'] = int(tf.reduce_mean(iters))
         metr['Loss'] = float(tf.reduce_mean(loss))
         return metr, metr['Loss'], y_true, y_pred, targets, y_score
-
 
     ## TRAINING METHOD ################################################################################################
     def train(self, gTr: Union[GraphObject, list[GraphObject]], epochs: int, gVa: Union[GraphObject, list[GraphObject], None] = None,
@@ -178,20 +180,25 @@ class BaseGNN(ABC):
         :param verbose: (int) 0: silent mode; 1: print history; 2: print epochs/batches, 3: history + epochs/batches. Default 3.
         :return: None
         """
+
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         def update_history(name: str, val: dict[str, float]) -> None:
             """ update self.history with a dict s.t. val.keys()==self.history.keys()^{'Epoch','Best Loss Va'} """
             # name must be 'Tr' or 'Va', to update correctly training or validation history
             if name not in ['Tr', 'Va']: raise TypeError('param <name> must be \'Tr\' or \'Va\'')
-            for key in val: self.history['{} {}'.format(key, name)].append(val[key])
+            for key in val: self.history[f'{key} {name}'].append(val[key])
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         def checktype(elem: Optional[Union[GraphObject, list[GraphObject]]]) -> list[GraphObject]:
             """ check if type(elem) is correct. If so, return None or a list og GraphObjects """
-            if elem is None: pass
-            elif type(elem) == GraphObject: elem = [elem]
-            elif isinstance(elem, (list, tuple)) and all(isinstance(x, GraphObject) for x in elem): elem = list(elem)
-            else: raise TypeError('Error - <gTr> and/or <gVa> are not GraphObject or LIST/TUPLE of GraphObjects')
+            if elem is None:
+                pass
+            elif type(elem) == GraphObject:
+                elem = [elem]
+            elif isinstance(elem, (list, tuple)) and all(isinstance(x, GraphObject) for x in elem):
+                elem = list(elem)
+            else:
+                raise TypeError('Error - <gTr> and/or <gVa> are not GraphObject or LIST/TUPLE of GraphObjects')
             return elem
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -245,7 +252,7 @@ class BaseGNN(ABC):
             # TRAINING STEP
             for i, elem in enumerate(gTr):
                 training_step(elem, mean=mean)
-                if verbose > 2: print(' > Epoch {:4d}/{} \t\t> Batch {:4d}/{}'.format(e, epochs, i + 1, len(gTr)), end='\r')
+                if verbose > 2: print(f' > Epoch {e:4d}/{epochs} \t\t> Batch {i + 1:4d}/{len(gTr)}', end='\r')
 
             # TRAINING EVALUATION STEP
             if e % update_freq == 0:
@@ -263,8 +270,10 @@ class BaseGNN(ABC):
             if (e % update_freq == 0) and gVa:
                 metricsVa, lossVa, *_ = self.evaluate(gVa, class_weights)
                 # Validation check
-                if lossVa < vbest_loss: vbest_loss, vfails, ws, wo = reset_validation(lossVa)
-                else: vfails += 1
+                if lossVa < vbest_loss:
+                    vbest_loss, vfails, ws, wo = reset_validation(lossVa)
+                else:
+                    vfails += 1
                 # History Update
                 self.history['Best Loss Va'].append(vbest_loss)
                 self.history['Fail'].append(vfails)
@@ -279,16 +288,16 @@ class BaseGNN(ABC):
 
             # PRINT HISTORY
             if (e % update_freq == 0) and verbose in [1, 3]: self.printHistory()
-        else: print('\r End of Epochs Stop')
+        else:
+            print('\r End of Epochs Stop')
 
         # Tensorboard Update FINAL: write BEST WEIGHTS + BIASES
         for i, j, namespace in zip(*self.get_weights(), self.namespace):
             self.write_net_weights(netS_writer, namespace, 'N1', i, e)
             self.write_net_weights(netO_writer, namespace, 'N2', j, e)
 
-
     ## TEST METHOD ####################################################################################################
-    def test(self, gTe: Union[GraphObject, list[GraphObject]], *, acc_classes: bool = False, rocdir: str = '',
+    def test(self, gTe: Union[GraphObject, list[GraphObject]], *, class_weights=1, acc_classes: bool = False, rocdir: str = '',
              micro_and_macro: bool = False, prisofsdir: str = '', pos_label=0) -> dict[str, list[float]]:
         """ TEST PROCEDURE
 
@@ -306,7 +315,7 @@ class BaseGNN(ABC):
             raise TypeError('type of params <roc> and <prisofs> must be str')
 
         # Evaluate all the metrics in gnn.extra_metrics + Iter and Loss
-        metricsTe, lossTe, y_true, y_pred, targets, y_score = self.evaluate(gTe, class_weights=1)
+        metricsTe, lossTe, y_true, y_pred, targets, y_score = self.evaluate(gTe, class_weights=class_weights)
 
         # Accuracy per Class: shape = (1,number_classes)
         if acc_classes and self.addressed_problem == 'c':
@@ -318,15 +327,16 @@ class BaseGNN(ABC):
         if prisofsdir: mt.PRISOFS(targets, y_score, prisofsdir, pos_label=pos_label)
         return metricsTe
 
-
     ## K-FOLD CROSS VALIDATION METHOD #################################################################################
     @classmethod
-    def LKO(self, dataset: Union[list[GraphObject], list[list[GraphObject]]], number_of_batches: int = 10, useVa: bool = False,
-            seed: Optional[float] = None, normalize_method: str = 'gTr', node_aggregation: str='average', acc_classes: bool = False,
-            epochs: int = 500, update_freq: int = 10, max_fails: int = 10, class_weights: Union[int, float, list[Union[float, int]]] = 1,
-            mean: bool = True, verbose: int = 3, pos_label=0) -> dict[str, list[float]]:
+    def LKO(self, model, dataset: Union[list[GraphObject], list[list[GraphObject]]], problem_based: str, number_of_batches: int = 10,
+            useVa: bool = False, seed: Optional[float] = None, normalize_method: str = 'gTr', node_aggregation: str = 'average',
+            acc_classes: bool = False, epochs: int = 500, update_freq: int = 10, max_fails: int = 10,
+            class_weights: Union[int, float, list[Union[float, int]]] = 1, mean: bool = True, verbose: int = 3, pos_label=0)\
+            -> dict[str, list[float]]:
         """ LEAVE K OUT CROSS VALIDATION PROCEDURE
 
+        :param model:   GNNnodeBased, GNNedgeBased, GNNgraphBased, GNN2, LGNN instance model to be valuated
         :param dataset: (list) of GraphObject OR (list) of lists of GraphObject on which <gnn> has to be valuated
                         > NOTE: for graph-based problem, if type(dataset) == list of GraphObject,
                         s.t. len(dataset) == number of graphs in the dataset, then i-th class will may be have different frequencies among batches
@@ -362,7 +372,8 @@ class BaseGNN(ABC):
 
         # Dataset creation, based on param <dataset>
         if useVa: number_of_batches += 1
-        dataset_batches = [getbatches(elem, node_aggregation, -1, number_of_batches, one_graph_per_batch=False) for i, elem in enumerate(dataset)]
+        dataset_batches = [getbatches(elem, node_aggregation, -1, number_of_batches, one_graph_per_batch=False) for i, elem in
+                           enumerate(dataset)]
         flatten = lambda l: [item for sublist in l for item in sublist]
         flattened = [flatten([i[j] for i in dataset_batches]) for j in range(number_of_batches)]
 
@@ -370,10 +381,10 @@ class BaseGNN(ABC):
         for i in flattened: random.shuffle(i)
 
         # Final dataset for LKO procedure: merge graphs belonging to classes/dataset to obtain 1 GraphObject per batch
-        dataset = [GraphObject.merge(i, node_aggregation=node_aggregation) for i in flattened]
+        dataset = [GraphObject.merge(i, problem_based=problem_based, node_aggregation=node_aggregation) for i in flattened]
 
         # initialize results
-        metrics = {i: list() for i in list(self.extra_metrics) + ['It', 'Loss']}
+        metrics = {i: list() for i in list(model.extra_metrics) + ['It', 'Loss']}
         if acc_classes: metrics['Acc Classes'] = list()
 
         # LKO PROCEDURE
@@ -389,9 +400,111 @@ class BaseGNN(ABC):
             if normalize_method: normalize_graphs(gTr, gVa, gTe, based_on=normalize_method)
 
             # gnn creation, learning and test
-            print('\nBATCH K-OUT {0}/{1}'.format(i + 1, len_dataset))
-            temp = self.copy(copy_weights=False, path_writer=self.path_writer + str(i), namespace='Batch {}-{}'.format(i+1, len(dataset)))
+            print(f'\nBATCH K-OUT {i + 1}/{len_dataset}')
+            temp = model.copy(copy_weights=False, path_writer=model.path_writer + str(i), namespace=f'Batch {i + 1}-{len(dataset)}')
             temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)
+            M = temp.test(gTe, acc_classes=acc_classes, pos_label=pos_label)
+
+            # evaluate metrics
+            for m in M: metrics[m].append(M[m])
+        return metrics
+
+    @classmethod
+    def LKO1(self, model, dataset: Union[GraphObject, list[GraphObject], list[list[GraphObject]]],
+             number_of_batches: int = 10, useVa: bool = False, seed: Optional[float] = None, normalize_method: str = 'gTr',
+             node_aggregation: str = 'average', acc_classes: bool = False, epochs: int = 500, training_mode='parallel', update_freq: int = 10, max_fails: int = 10,
+            class_weights: Union[int, float, list[Union[float, int]]] = 1, mean: bool = True, verbose: int = 3, pos_label=0)\
+            -> dict[str, list[float]]:
+        """ LEAVE K OUT CROSS VALIDATION PROCEDURE
+
+        :param model:   GNNnodeBased, GNNedgeBased, GNNgraphBased, GNN2, LGNN instance model to be valuated
+        :param dataset: (list) of GraphObject OR (list) of lists of GraphObject on which <gnn> has to be valuated
+                        > NOTE: for graph-based problem, if type(dataset) == list of GraphObject,
+                        s.t. len(dataset) == number of graphs in the dataset, then i-th class will may be have different frequencies among batches
+                        [so the i-th class may me more present in a batch and absent in another batch].
+                        Otherwise, if type(dataset) == list of lists, s.t. len(dataset) == number of classes AND len(dataset[i]) == number of graphs
+                        belonging to i-th class, then i-th class will have the same frequency among all the batches
+                        [so the i-th class will be as frequent in a single batch as in the entire dataset].
+        :param number_of_batches: (int) define how many batches will be considered in LKO procedure
+        :param useVa: (bool) if True, Early Stopping is considered during learning procedure; None otherwise
+        :param seed: (int or None) for fixed-shuffle options
+        :param normalize_method: (str) in ['','gTr,'all'], see normalize_graphs for details. If equal to '', no normalization is performed
+        :param node_aggregation: (str) for node aggregation method during dataset creation. See GraphObject for details
+        :param acc_classes: (bool) return or not the accuracy for each class in metrics
+        :param epochs: (int) number of epochs for training <gnn>, the gnn will be trained for all the epochs
+        :param update_freq: (int) specifies how many epochs must be completed before evaluating gVa and gTr
+        :param max_fails: (int) specifies the max number of failures before early sopping
+        :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss
+        :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, else as the mean
+        :param verbose: (int) 0: silent mode; 1:print epochs/batches; 2: print history; 3: history + epochs/batches
+        :param pos_label: (int) for classification problems, identify the positive class
+        :return: a dict containing all the considered metrics in <gnn>.history
+        """
+        from GNN.GNN_utils import normalize_graphs, getbatches
+        from numpy import random, arange, array_split
+        from GNN.GNN import GNNnodeBased, GNNedgeBased, GNNgraphBased
+        from GNN.LGNN.LGNN import LGNN
+
+        # Shuffling procedure: set or not seed parameter, then shuffle classes and/or elements in each class/dataset
+        if seed: random.seed(seed)
+        # Dataset creation, based on param <dataset>
+        if useVa: number_of_batches += 1
+
+        # classification vs regression LKO problem: see :param dataset: for details
+        if isinstance(dataset, GraphObject):
+            mask_indicess = arange(len(dataset.set_mask))
+
+            random.shuffle(mask_indicess)
+
+            masks = array_split(mask_indicess, number_of_batches)
+            dataset = [dataset.copy() for _ in range(number_of_batches)]
+
+            for maskidx, g in zip(masks, dataset):
+                g.set_mask = np.zeros(len(g.set_mask), dtype=bool)
+                g.set_mask[maskidx] = True
+
+        elif isinstance(dataset, list) and all(isinstance(i, GraphObject) for i in dataset):
+            dataset = [dataset]
+            for i in dataset: random.shuffle(i)
+            random.shuffle(dataset)
+
+            dataset_batches = [getbatches(elem, node_aggregation, -1, number_of_batches, one_graph_per_batch=False) for i, elem in
+                               enumerate(dataset)]
+            flatten = lambda l: [item for sublist in l for item in sublist]
+            flattened = [flatten([i[j] for i in dataset_batches]) for j in range(number_of_batches)]
+
+            # shuffle again to mix classes inside batches, so that i-th class does not appears there at the same position
+            for i in flattened: random.shuffle(i)
+
+            # Final dataset for LKO procedure: merge graphs belonging to classes/dataset to obtain 1 GraphObject per batch
+            problem_based = {GNNnodeBased:'n', GNNedgeBased:'g', GNNgraphBased:'g'}
+            dataset = [GraphObject.merge(i, problem_based=problem_based.get(type(model), problem_based.get(model.GNNS_TYPE)),
+                                                                            node_aggregation=node_aggregation) for i in flattened]
+        else: pass #raise TypeError('blablabla poi scrivo qualcosa')
+
+        # initialize results
+        metrics = {i: list() for i in list(model.extra_metrics) + ['It', 'Loss']}
+        if acc_classes: metrics['Acc Classes'] = list()
+
+        # LKO PROCEDURE
+        len_dataset = len(dataset) - int(useVa)
+        for i in range(len_dataset):
+
+            # split dataset in training/validation/test set
+            gTr = dataset.copy()
+            gTe = gTr.pop(i)
+            gVa = gTr.pop(-1) if useVa else None
+
+            # normalization procedure
+            if normalize_method: normalize_graphs(gTr, gVa, gTe, based_on=normalize_method)
+
+            # gnn creation, learning and test
+            print(f'\nBATCH K-OUT {i + 1}/{len_dataset}')
+            temp = model.copy(copy_weights=False, path_writer=model.path_writer + str(i), namespace=f'Batch {i + 1}-{len(dataset)}')
+            if type(model) in [GNNnodeBased, GNNedgeBased, GNNgraphBased]:
+                temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)
+            else:
+                temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose, training_mode=training_mode)
             M = temp.test(gTe, acc_classes=acc_classes, pos_label=pos_label)
 
             # evaluate metrics
@@ -400,6 +513,13 @@ class BaseGNN(ABC):
 
 
     ## STATIC METHODs #################################################################################################
+    @staticmethod
+    # MODIFICARE QUESTO PER RENDERLO GRAPH NODE E EDGE BASED
+    def get_graph_target(g):
+        targs = tf.constant(g.getTargets(), dtype=tf.float32)
+        mask = tf.boolean_mask(g.set_mask, g.output_mask)
+        return tf.boolean_mask(targs, mask)
+
     @staticmethod
     def ArcNode2SparseTensor(ArcNode) -> tf.Tensor:
         """ get the transposed sparse tensor of the ArcNode matrix """
@@ -434,12 +554,12 @@ class BaseGNN(ABC):
     @staticmethod
     def write_net_weights(writer: tf.summary.SummaryWriter, namespace: str, net_name: str, val_list: list[array], epoch: int) -> None:
         """ TENSORBOARD METHOD: writes histograms of the nets weights """
-        W, B, names_layers = val_list[0::2], val_list[1::2], ['{} L{}'.format(net_name, i) for i in range(len(val_list)//2)]
+        W, B, names_layers = val_list[0::2], val_list[1::2], [f'{net_name} L{i}' for i in range(len(val_list) // 2)]
         assert len(names_layers) == len(W) == len(B)
 
         with writer.as_default():
             for n, w, b in zip(names_layers, W, B):
-                with tf.name_scope('{}: Weights'.format(namespace)):
+                with tf.name_scope(f'{namespace}: Weights'):
                     tf.summary.histogram(n, w, step=epoch)
-                with tf.name_scope('{}: Biases'.format(namespace)):
+                with tf.name_scope(f'{namespace}: Biases'):
                     tf.summary.histogram(n, b, step=epoch)

@@ -97,7 +97,7 @@ class GNNnodeBased(BaseGNN):
 
         # save configuration file in json format
         config = {'loss_function': tf.keras.losses.serialize(self.loss_function), 'loss_arguments': self.loss_args,
-                  'optimizer': tf.keras.optimizers.serialize(self.optimizer),
+                  'optimizer': str(tf.keras.optimizers.serialize(self.optimizer)),
                   'extra_metrics': list(self.extra_metrics), 'extra_metrics_arguments': self.mt_args,
                   'max_iteration': self.max_iteration, 'threshold': self.state_threshold,
                   'addressed_problem': self.addressed_problem, 'state_vect_dim': self.state_vect_dim}
@@ -126,7 +126,7 @@ class GNNnodeBased(BaseGNN):
             config = loads(read_file.read())
 
         # get optimizer, loss function
-        optz = tf.keras.optimizers.deserialize(config.pop('optimizer'))
+        optz = tf.keras.optimizers.deserialize(eval(config.pop('optimizer')))
         loss = tf.keras.losses.deserialize(config.pop('loss_function'))
 
         # load net_state and net_output
@@ -169,8 +169,7 @@ class GNNnodeBased(BaseGNN):
         :return: (tuple) convergence iteration, loss value, target and output of the model
         """
         # get targets
-        targs = tf.constant(g.getTargets(), dtype=tf.float32)
-        if g.problem_based != 'g':  targs = tf.boolean_mask(targs, g.getSetMask()[g.getOutputMask()])
+        targs = self.get_graph_target(g)
 
         # graph processing
         it, _, out = self.Loop(g, training=training)
@@ -210,7 +209,10 @@ class GNNnodeBased(BaseGNN):
         source_state = tf.gather(state, nodes_index[:, 0])
 
         # concatenate the gathered source node states with the corresponding arc labels
-        arc_message = tf.concat([source_state, arcs_label], axis=1)
+        try:
+            arc_message = tf.concat([source_state, arcs_label], axis=1)
+        except:
+            print('ciao')
         if self.state_vect_dim:
             source_label = tf.gather(nodes, nodes_index[:, 0])
             arc_message = tf.concat([source_label, arc_message], axis=1)
@@ -263,23 +265,6 @@ class GNNnodeBased(BaseGNN):
         return k, state, out
 
 
-#######################################################################################################################
-### CLASS GNN - GRAPH BASED ###########################################################################################
-#######################################################################################################################
-class GNNgraphBased(GNNnodeBased):
-    """ GNN for graph-based problem """
-
-    def Loop(self, g: GraphObject, *, training: bool = False) -> tuple[int, tf.Tensor, tf.Tensor]:
-        """ process a single graph, returning iteration, states and output. Output of graph-based problem is the averaged nodes output """
-
-        # get iter, states and output of every nodes from GNNnodeBased
-        iter, state_nodes, out_nodes = super().Loop(g, training=training)
-
-        # obtain a single output for each graph, by using nodegraph matrix to the output of all of its nodes
-        nodegraph = tf.constant(g.getNodeGraph(), dtype=tf.float32)
-        out_gnn = tf.matmul(nodegraph, out_nodes, transpose_a=True)
-        return iter, state_nodes, out_gnn
-
 
 #######################################################################################################################
 ### CLASS GNN - EDGE BASED ############################################################################################
@@ -305,6 +290,30 @@ class GNNedgeBased(GNNnodeBased):
 
         # takes only arcs states for those with output_mask==1 AND belonging to the set (in case Dataset == 1 Graph)
         return tf.boolean_mask(arc_state, mask)
+
+
+
+#######################################################################################################################
+### CLASS GNN - GRAPH BASED ###########################################################################################
+#######################################################################################################################
+class GNNgraphBased(GNNnodeBased):
+    """ GNN for graph-based problem """
+
+    @staticmethod
+    def get_graph_target(g):
+        return tf.constant(g.getTargets(), dtype=tf.float32)
+
+    def Loop(self, g: GraphObject, *, training: bool = False) -> tuple[int, tf.Tensor, tf.Tensor]:
+        """ process a single graph, returning iteration, states and output. Output of graph-based problem is the averaged nodes output """
+
+        # get iter, states and output of every nodes from GNNnodeBased
+        iter, state_nodes, out_nodes = super().Loop(g, training=training)
+
+        # obtain a single output for each graph, by using nodegraph matrix to the output of all of its nodes
+        nodegraph = tf.constant(g.getNodeGraph(), dtype=tf.float32)
+        out_gnn = tf.matmul(nodegraph, out_nodes, transpose_a=True)
+        return iter, state_nodes, out_gnn
+
 
 
 #######################################################################################################################
