@@ -328,89 +328,7 @@ class BaseGNN(ABC):
         return metricsTe
 
     ## K-FOLD CROSS VALIDATION METHOD #################################################################################
-    @classmethod
-    def LKO(self, model, dataset: Union[list[GraphObject], list[list[GraphObject]]], problem_based: str, number_of_batches: int = 10,
-            useVa: bool = False, seed: Optional[float] = None, normalize_method: str = 'gTr', node_aggregation: str = 'average',
-            acc_classes: bool = False, epochs: int = 500, update_freq: int = 10, max_fails: int = 10,
-            class_weights: Union[int, float, list[Union[float, int]]] = 1, mean: bool = True, verbose: int = 3, pos_label=0)\
-            -> dict[str, list[float]]:
-        """ LEAVE K OUT CROSS VALIDATION PROCEDURE
-
-        :param model:   GNNnodeBased, GNNedgeBased, GNNgraphBased, GNN2, LGNN instance model to be valuated
-        :param dataset: (list) of GraphObject OR (list) of lists of GraphObject on which <gnn> has to be valuated
-                        > NOTE: for graph-based problem, if type(dataset) == list of GraphObject,
-                        s.t. len(dataset) == number of graphs in the dataset, then i-th class will may be have different frequencies among batches
-                        [so the i-th class may me more present in a batch and absent in another batch].
-                        Otherwise, if type(dataset) == list of lists, s.t. len(dataset) == number of classes AND len(dataset[i]) == number of graphs
-                        belonging to i-th class, then i-th class will have the same frequency among all the batches
-                        [so the i-th class will be as frequent in a single batch as in the entire dataset].
-        :param number_of_batches: (int) define how many batches will be considered in LKO procedure
-        :param useVa: (bool) if True, Early Stopping is considered during learning procedure; None otherwise
-        :param seed: (int or None) for fixed-shuffle options
-        :param normalize_method: (str) in ['','gTr,'all'], see normalize_graphs for details. If equal to '', no normalization is performed
-        :param node_aggregation: (str) for node aggregation method during dataset creation. See GraphObject for details
-        :param acc_classes: (bool) return or not the accuracy for each class in metrics
-        :param epochs: (int) number of epochs for training <gnn>, the gnn will be trained for all the epochs
-        :param update_freq: (int) specifies how many epochs must be completed before evaluating gVa and gTr
-        :param max_fails: (int) specifies the max number of failures before early sopping
-        :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss
-        :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, else as the mean
-        :param verbose: (int) 0: silent mode; 1:print epochs/batches; 2: print history; 3: history + epochs/batches
-        :param pos_label: (int) for classification problems, identify the positive class
-        :return: a dict containing all the considered metrics in <gnn>.history
-        """
-        from GNN.GNN_utils import normalize_graphs, getbatches
-        from numpy import random
-
-        # classification vs regression LKO problem: see :param dataset: for details
-        if all(isinstance(i, GraphObject) for i in dataset): dataset = [dataset]
-
-        # Shuffling procedure: fix/not fix seed parameter, then shuffle classes and/or elements in each class/dataset
-        if seed: random.seed(seed)
-        random.shuffle(dataset)
-        for i in dataset: random.shuffle(i)
-
-        # Dataset creation, based on param <dataset>
-        if useVa: number_of_batches += 1
-        dataset_batches = [getbatches(elem, node_aggregation, -1, number_of_batches, one_graph_per_batch=False) for i, elem in
-                           enumerate(dataset)]
-        flatten = lambda l: [item for sublist in l for item in sublist]
-        flattened = [flatten([i[j] for i in dataset_batches]) for j in range(number_of_batches)]
-
-        # shuffle again to mix classes inside batches, so that i-th class does not appears there at the same position
-        for i in flattened: random.shuffle(i)
-
-        # Final dataset for LKO procedure: merge graphs belonging to classes/dataset to obtain 1 GraphObject per batch
-        dataset = [GraphObject.merge(i, problem_based=problem_based, node_aggregation=node_aggregation) for i in flattened]
-
-        # initialize results
-        metrics = {i: list() for i in list(model.extra_metrics) + ['It', 'Loss']}
-        if acc_classes: metrics['Acc Classes'] = list()
-
-        # LKO PROCEDURE
-        len_dataset = len(dataset) - (1 if useVa else 0)
-        for i in range(len_dataset):
-
-            # split dataset in training/validation/test set
-            gTr = dataset.copy()
-            gTe = gTr.pop(i)
-            gVa = gTr.pop(-1) if useVa else None
-
-            # normalization procedure
-            if normalize_method: normalize_graphs(gTr, gVa, gTe, based_on=normalize_method)
-
-            # gnn creation, learning and test
-            print(f'\nBATCH K-OUT {i + 1}/{len_dataset}')
-            temp = model.copy(copy_weights=False, path_writer=model.path_writer + str(i), namespace=f'Batch {i + 1}-{len(dataset)}')
-            temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)
-            M = temp.test(gTe, acc_classes=acc_classes, pos_label=pos_label)
-
-            # evaluate metrics
-            for m in M: metrics[m].append(M[m])
-        return metrics
-
-    @classmethod
-    def LKO1(self, model, dataset: Union[GraphObject, list[GraphObject], list[list[GraphObject]]],
+    def LKO(self, dataset: Union[GraphObject, list[GraphObject], list[list[GraphObject]]],
              number_of_batches: int = 10, useVa: bool = False, seed: Optional[float] = None, normalize_method: str = 'gTr',
              node_aggregation: str = 'average', acc_classes: bool = False, epochs: int = 500, training_mode='parallel', update_freq: int = 10, max_fails: int = 10,
             class_weights: Union[int, float, list[Union[float, int]]] = 1, mean: bool = True, verbose: int = 3, pos_label=0)\
@@ -443,7 +361,6 @@ class BaseGNN(ABC):
         from GNN.GNN_utils import normalize_graphs, getbatches
         from numpy import random, arange, array_split
         from GNN.GNN import GNNnodeBased, GNNedgeBased, GNNgraphBased
-        from GNN.LGNN.LGNN import LGNN
 
         # Shuffling procedure: set or not seed parameter, then shuffle classes and/or elements in each class/dataset
         if seed: random.seed(seed)
@@ -478,12 +395,13 @@ class BaseGNN(ABC):
 
             # Final dataset for LKO procedure: merge graphs belonging to classes/dataset to obtain 1 GraphObject per batch
             problem_based = {GNNnodeBased:'n', GNNedgeBased:'g', GNNgraphBased:'g'}
-            dataset = [GraphObject.merge(i, problem_based=problem_based.get(type(model), problem_based.get(model.GNNS_TYPE)),
+
+            dataset = [GraphObject.merge(i, problem_based=problem_based.get(type(self), problem_based.get(self.GNNS_TYPE)),
                                                                             node_aggregation=node_aggregation) for i in flattened]
-        else: pass #raise TypeError('blablabla poi scrivo qualcosa')
+        else: raise TypeError('param <dataset> must be a GraphObject, a list of GraphObjects or a list of lists of Graphobjects')
 
         # initialize results
-        metrics = {i: list() for i in list(model.extra_metrics) + ['It', 'Loss']}
+        metrics = {i: list() for i in list(self.extra_metrics) + ['It', 'Loss']}
         if acc_classes: metrics['Acc Classes'] = list()
 
         # LKO PROCEDURE
@@ -500,8 +418,8 @@ class BaseGNN(ABC):
 
             # gnn creation, learning and test
             print(f'\nBATCH K-OUT {i + 1}/{len_dataset}')
-            temp = model.copy(copy_weights=False, path_writer=model.path_writer + str(i), namespace=f'Batch {i + 1}-{len(dataset)}')
-            if type(model) in [GNNnodeBased, GNNedgeBased, GNNgraphBased]:
+            temp = self.copy(copy_weights=False, path_writer=self.path_writer + str(i), namespace=f'Batch {i + 1}-{len(dataset)}')
+            if type(temp) in [GNNnodeBased, GNNedgeBased, GNNgraphBased]:
                 temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)
             else:
                 temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose, training_mode=training_mode)
@@ -520,6 +438,7 @@ class BaseGNN(ABC):
         mask = tf.boolean_mask(g.set_mask, g.output_mask)
         return tf.boolean_mask(targs, mask)
 
+    # -----------------------------------------------------------------------------------------------------------------
     @staticmethod
     def ArcNode2SparseTensor(ArcNode) -> tf.Tensor:
         """ get the transposed sparse tensor of the ArcNode matrix """
