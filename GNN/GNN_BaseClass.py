@@ -27,14 +27,14 @@ class BaseGNN(ABC):
                  namespace='GNN') -> None:
         """ CONSTRUCTOR - Other attributes must be defined in inheriting class
 
-        :param optimizer: (tf.keras.optimizers) for gradient application, initialized externally
-        :param loss_function: (tf.keras.losses) or (tf.function) for the loss computation
-        :param loss_arguments: (dict) with some {'argument':values} one could pass to loss when computed
-        :param addressed_problem: (str) in ['r','c'], 'r':regression, 'c':classification for the addressed problem
-        :param extra_metrics: None or dict {'name':function} for metrics to be watched during training/validaion/test
-        :param extra_metrics_arguments: None or dict {'name':{'argument':value}} for arguments to be passed to extra_metrics
-        :param path_writer: (str) path for saving TensorBoard objects
-        :param namespace: (str) namespace for tensorboard visualization
+        :param optimizer: (tf.keras.optimizers) for gradient application, initialized externally.
+        :param loss_function: (tf.keras.losses) for the loss computation.
+        :param loss_arguments: (dict) with some {'argument':values} one could pass to loss when computed.
+        :param addressed_problem: (str) in ['r','c'], 'r':regression, 'c':classification for the addressed problem.
+        :param extra_metrics: None or dict {'name':function} for metrics to be watched during training/validation/test procedures.
+        :param extra_metrics_arguments: None or dict {'name':{'argument':value}} for arguments passed to extra_metrics['name'].
+        :param path_writer: (str) path for saving TensorBoard objects in training procedure. If folder is not empty, all files are removed.
+        :param namespace: (str) namespace for tensorboard visualization.
         """
         # check types and values
         if addressed_problem not in ['c', 'r']: raise ValueError('param <addressed_problem> not in [\'c\',\'r\']')
@@ -65,67 +65,68 @@ class BaseGNN(ABC):
     ## ABSTRACT METHODS ###############################################################################################
     @abstractmethod
     def copy(self, *, path_writer: str = '', namespace: str = '', copy_weights: bool = True):
-        """ COPY METHOD
+        """ COPY METHOD - defined in inheriting class
 
-        :param path_writer: None or (str), to save copied model writer. Default is in the same folder + '_copied'
-        :param copy_weights: (bool) True: state and output weights are copied; False: state and output weights are re-initialized
-        :return: a Deep Copy of the model instance.
+        :param path_writer: None or (str), to save copied gnn tensorboard writer.
+        :param namespace: (str) for tensorboard visualization in model training procedure.
+        :param copy_weights: (bool) True: state and output weights are copied in new model, otherwise they are re-initialized.
+        :return: a Deep Copy of the GNN instance.
         """
         pass
 
     @abstractmethod
     def save(self, path: str) -> None:
-        """ save model to folder <path>"""
+        """ Save model to folder <path> """
         pass
 
     @staticmethod
     @abstractmethod
     def load(path: str, path_writer: str, namespace: str):
-        """ load model from folder
+        """ Load model from folder
 
         :param path: (str) folder path containing all useful files to load the model
-        :param path_writer: (str) path for writer folder. !!! Constructor method makes delete a non-empty folder and makes a new empty one
-        :param namespace: (str) namespace for tensorboard visualization of the model in training procedure
+        :param path_writer: (str) path for writer folder. !!! Constructor method makes delete a non-empty folder and makes a new empty one.
+        :param namespace: (str) namespace for tensorboard visualization of the model in training procedure.
         :return: the model
         """
         pass
 
     @abstractmethod
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:
-        """ get tensor weights for net_state and net_output for each gnn layer """
+        """ Get tensor weights for net_state and net_output for each gnn layer """
         pass
 
     @abstractmethod
     def get_weights(self) -> tuple[list[list[array]], list[list[array]]]:
-        """ get array weights for net_state and net_output for each gnn layer """
+        """ Get array weights for net_state and net_output for each gnn layer """
         pass
 
     @abstractmethod
     def set_weights(self, weights_state: Union[list[array], list[list[array]]],
                     weights_output: Union[list[array], list[list[array]]]) -> None:
-        """ set weights for net_state and net_output """
+        """ Set weights for net_state and net_output """
         pass
 
     @abstractmethod
     def Loop(self, g: GraphObject, *, training: bool = False) -> tuple[int, tf.Tensor, tf.Tensor]:
-        """ process a single graph, returning iteration, states and output """
+        """ Process a single GraphObject element g, returning iteration, states and output """
         pass
 
     ## HISTORY METHOD #################################################################################################
     def printHistory(self) -> None:
-        """ print self.history as a pd.Dataframe. Pandas automatically detects terminal width, so do not print dataframe.to_string() """
+        """ Print self.history as a pd.Dataframe. Pandas automatically detects terminal width """
         print('\n', DataFrame(self.history), end='\n\n')
 
     # -----------------------------------------------------------------------------------------------------------------
     def saveHistory_csv(self, path) -> None:
-        """ save history attribute to vsc file """
+        """ Save history attribute to .csv file. Extension can be omitted from path string """
         if path[-3:] != '.csv': path += '.csv'
         df = DataFrame(self.history)
         df.to_csv(path, index=False)
 
     # -----------------------------------------------------------------------------------------------------------------
     def saveHistory_txt(self, path) -> None:
-        """ save history attribute to txt file """
+        """ Save history attribute to .txt file. Extension can be omitted from path string """
         if path[-3:] != '.txt': path += '.txt'
         df = DataFrame(self.history)
         with open(path, 'w') as txt:
@@ -133,15 +134,16 @@ class BaseGNN(ABC):
 
     ## EVALUATE METHODs ###############################################################################################
     def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]], training: bool) -> tuple:
-        """ evaluate method for evaluating one graph single graph. Returns iteration, loss, target and output """
+        """ Evaluate method for evaluating one GraphObjetc element g. Returns iteration, loss, targets and outputs """
         pass
 
     # -----------------------------------------------------------------------------------------------------------------
     def evaluate(self, g: Union[GraphObject, list[GraphObject]], class_weights: Union[int, float, list[float]] = 1) -> tuple:
-        """ return ALL the metrics in self.extra_metrics + Iter & Loss for a GraphObject or a list of GraphObjects
-        :param g: element/list of GraphObject to be evaluated
-        :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss
-        :return: metrics, float(loss) target_labels, prediction_labels, targets_raw and prediction_raw,
+        """ Return ALL the metrics in self.extra_metrics + Iter & Loss for a GraphObject or a list of GraphObjects in test mode
+
+        :param g: element/list of GraphObject to be evaluated.
+        :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss.
+        :return: metrics, float(loss) target_labels, prediction_labels, targets_raw and prediction_raw.
         """
         # chech if inputs are GraphObject OR list(s) of GraphObject(s)
         if not (type(g) == GraphObject or (type(g) == list and all(isinstance(x, GraphObject) for x in g))):
@@ -167,18 +169,18 @@ class BaseGNN(ABC):
     ## TRAINING METHOD ################################################################################################
     def train(self, gTr: Union[GraphObject, list[GraphObject]], epochs: int, gVa: Union[GraphObject, list[GraphObject], None] = None,
               update_freq: int = 10, max_fails: int = 10, class_weights: Union[int, list[float]] = 1,
-              *, mean: bool = False, verbose: int = 3) -> None:
-        """ TRAIN PROCEDURE
+              *, mean: bool = True, verbose: int = 3) -> None:
+        """ TRAINING PROCEDURE
 
-        :param gTr: GraphObject or list of GraphObjects used for the learning procedure
-        :param epochs: (int) the max number of epochs for the learning procedure
-        :param gVa: element/list of GraphsObjects for early stopping. Default None, no early stopping performed
+        :param gTr: GraphObject or list of GraphObjects used for the learning procedure.
+        :param epochs: (int) the max number of epochs for the learning procedure.
+        :param gVa: element/list of GraphsObjects for early stopping. Default None, no early stopping performed.
         :param update_freq: (int) how many epochs must be completed before evaluating gVa and gTr and/or print learning progress. Default 10.
-        :param max_fails: (int) specifies the max number of failures before early sopping. Default 10.
+        :param max_fails: (int) specifies the max number of failures in gVa improvement loss evaluation before early sopping. Default 10.
         :param class_weights: (list) [w0, w1,...,wc] in classification task when targets are 1-hot, specify the weight for weighted loss. Default 1.
+                                     > removed in future version
         :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, otherwise as the mean. Default True.
         :param verbose: (int) 0: silent mode; 1: print history; 2: print epochs/batches, 3: history + epochs/batches. Default 3.
-        :return: None
         """
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -283,11 +285,13 @@ class BaseGNN(ABC):
                 # Early Stoping - reached max_fails for validation set
                 if vfails >= max_fails:
                     self.set_weights(ws, wo)
+                    if verbose in [1, 3]: self.printHistory()
                     print('\r Validation Stop')
                     break
 
             # PRINT HISTORY
             if (e % update_freq == 0) and verbose in [1, 3]: self.printHistory()
+
         else:
             print('\r End of Epochs Stop')
 
@@ -301,13 +305,15 @@ class BaseGNN(ABC):
              micro_and_macro: bool = False, prisofsdir: str = '', pos_label=0) -> dict[str, list[float]]:
         """ TEST PROCEDURE
 
-        :param gTe: element/list of GraphObjects for testing procedure
-        :param acc_classes: (bool) if True print accuracy for each class, in classification problems
-        :param rocdir: (str) path for saving ROC images file
-        :param micro_and_macro: (bool) for computing micro and macro average quantities in roc curve
-        :param prisofsdir: (str) path for saving Precision-Recall curve with ISO F-Score images file
-        :param pos_label: (int) for classification problems, identify the positive class
-        :return: metrics for gTe
+        :param gTe: element/list of GraphObjects for testing procedure.
+        :param class_weights: (list) [w0, w1,...,wc] in classification task when targets are 1-hot, specify the weight for weighted loss. Default 1.
+                                     > removed in future version.
+        :param acc_classes: (bool) if True print accuracy for each class, in classification problems.
+        :param rocdir: (str) path for saving ROC images file.
+        :param micro_and_macro: (bool) for computing micro and macro average quantities in roc curve.
+        :param prisofsdir: (str) path for saving Precision-Recall curve with ISO F-Score images file.
+        :param pos_label: (int) for classification problems, identify the positive class.
+        :return: metrics for gTe.
         """
         if type(gTe) != GraphObject and not (type(gTe) == list and all(isinstance(x, GraphObject) for x in gTe)):
             raise TypeError('type of param <gTe> must be GraphObject or list of GraphObjects')
@@ -329,13 +335,12 @@ class BaseGNN(ABC):
 
     ## K-FOLD CROSS VALIDATION METHOD #################################################################################
     def LKO(self, dataset: Union[GraphObject, list[GraphObject], list[list[GraphObject]]],
-             number_of_batches: int = 10, useVa: bool = False, seed: Optional[float] = None, normalize_method: str = 'gTr',
-             node_aggregation: str = 'average', acc_classes: bool = False, epochs: int = 500, training_mode='parallel', update_freq: int = 10, max_fails: int = 10,
-            class_weights: Union[int, float, list[Union[float, int]]] = 1, mean: bool = True, verbose: int = 3, pos_label=0)\
-            -> dict[str, list[float]]:
+            number_of_batches: int = 10, useVa: bool = False, seed: Optional[float] = None, normalize_method: str = 'gTr',
+            node_aggregation: str = 'average', acc_classes: bool = False, epochs: int = 500, training_mode='parallel',
+            update_freq: int = 10, max_fails: int = 10, class_weights: Union[int, float, list[Union[float, int]]] = 1,
+            mean: bool = True, verbose: int = 3, pos_label=0) -> dict[str, list[float]]:
         """ LEAVE K OUT CROSS VALIDATION PROCEDURE
 
-        :param model:   GNNnodeBased, GNNedgeBased, GNNgraphBased, GNN2, LGNN instance model to be valuated
         :param dataset: (list) of GraphObject OR (list) of lists of GraphObject on which <gnn> has to be valuated
                         > NOTE: for graph-based problem, if type(dataset) == list of GraphObject,
                         s.t. len(dataset) == number of graphs in the dataset, then i-th class will may be have different frequencies among batches
@@ -343,20 +348,21 @@ class BaseGNN(ABC):
                         Otherwise, if type(dataset) == list of lists, s.t. len(dataset) == number of classes AND len(dataset[i]) == number of graphs
                         belonging to i-th class, then i-th class will have the same frequency among all the batches
                         [so the i-th class will be as frequent in a single batch as in the entire dataset].
-        :param number_of_batches: (int) define how many batches will be considered in LKO procedure
-        :param useVa: (bool) if True, Early Stopping is considered during learning procedure; None otherwise
-        :param seed: (int or None) for fixed-shuffle options
-        :param normalize_method: (str) in ['','gTr,'all'], see normalize_graphs for details. If equal to '', no normalization is performed
-        :param node_aggregation: (str) for node aggregation method during dataset creation. See GraphObject for details
-        :param acc_classes: (bool) return or not the accuracy for each class in metrics
-        :param epochs: (int) number of epochs for training <gnn>, the gnn will be trained for all the epochs
-        :param update_freq: (int) specifies how many epochs must be completed before evaluating gVa and gTr
-        :param max_fails: (int) specifies the max number of failures before early sopping
-        :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss
-        :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, else as the mean
-        :param verbose: (int) 0: silent mode; 1:print epochs/batches; 2: print history; 3: history + epochs/batches
-        :param pos_label: (int) for classification problems, identify the positive class
-        :return: a dict containing all the considered metrics in <gnn>.history
+        :param number_of_batches: (int) define how many batches will be considered in LKO procedure.
+        :param useVa: (bool) if True, Early Stopping is considered during learning procedure; None otherwise.
+        :param seed: (int or None) for fixed-shuffle options.
+        :param normalize_method: (str) in ['','gTr,'all'], see normalize_graphs for details. If equal to '', no normalization is performed.
+        :param node_aggregation: (str) for node aggregation method during dataset creation. See GraphObject for details.
+        :param acc_classes: (bool) return or not the accuracy for each class in metrics.
+        :param epochs: (int) number of epochs for training <gnn>, the gnn will be trained for all the epochs.
+        :param training_mode: (str) for lgnn cross validation procedure. LGNN.train() for details.
+        :param update_freq: (int) specifies how many epochs must be completed before evaluating gVa and gTr.
+        :param max_fails: (int) specifies the max number of failures before early sopping.
+        :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss.
+        :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, else as the mean.
+        :param verbose: (int) 0: silent mode; 1:print epochs/batches; 2: print history; 3: history + epochs/batches.
+        :param pos_label: (int) for classification problems, identify the positive class.
+        :return: a dict containing all the considered metrics in <gnn>.history.
         """
         from GNN.GNN_utils import normalize_graphs, getbatches
         from numpy import random, arange, array_split
@@ -394,11 +400,12 @@ class BaseGNN(ABC):
             for i in flattened: random.shuffle(i)
 
             # Final dataset for LKO procedure: merge graphs belonging to classes/dataset to obtain 1 GraphObject per batch
-            problem_based = {GNNnodeBased:'n', GNNedgeBased:'g', GNNgraphBased:'g'}
+            problem_based = {GNNnodeBased: 'n', GNNedgeBased: 'g', GNNgraphBased: 'g'}
 
             dataset = [GraphObject.merge(i, problem_based=problem_based.get(type(self), problem_based.get(self.GNNS_TYPE)),
-                                                                            node_aggregation=node_aggregation) for i in flattened]
-        else: raise TypeError('param <dataset> must be a GraphObject, a list of GraphObjects or a list of lists of Graphobjects')
+                                         node_aggregation=node_aggregation) for i in flattened]
+        else:
+            raise TypeError('param <dataset> must be a GraphObject, a list of GraphObjects or a list of lists of Graphobjects')
 
         # initialize results
         metrics = {i: list() for i in list(self.extra_metrics) + ['It', 'Loss']}
@@ -429,11 +436,10 @@ class BaseGNN(ABC):
             for m in M: metrics[m].append(M[m])
         return metrics
 
-
     ## STATIC METHODs #################################################################################################
     @staticmethod
-    # MODIFICARE QUESTO PER RENDERLO GRAPH NODE E EDGE BASED
     def get_graph_target(g):
+        """ Get targets for node-based or edge-based problems: nodes states are filtered by set_mask and output_mask """
         targs = tf.constant(g.getTargets(), dtype=tf.float32)
         mask = tf.boolean_mask(g.set_mask, g.output_mask)
         return tf.boolean_mask(targs, mask)
@@ -441,7 +447,7 @@ class BaseGNN(ABC):
     # -----------------------------------------------------------------------------------------------------------------
     @staticmethod
     def ArcNode2SparseTensor(ArcNode) -> tf.Tensor:
-        """ get the transposed sparse tensor of the ArcNode matrix """
+        """ Get the transposed sparse tensor of the ArcNode matrix """
         # ArcNode Tensor, then reordered to be correctly computable. NOTE: reorder() recommended by TF2.0+
         indices = [[ArcNode.row[i], ArcNode.col[i]] for i in range(ArcNode.shape[0])]
         arcnode = tf.SparseTensor(indices, values=ArcNode.data, dense_shape=ArcNode.shape)

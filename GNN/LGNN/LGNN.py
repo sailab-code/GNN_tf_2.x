@@ -26,17 +26,17 @@ class LGNN(BaseGNN):
                  namespace: str = 'LGNN') -> None:
         """ CONSTRUCTOR
 
-        :param gnns: (list) of instances of type GNN representing LGNN layers, initialized externally
-        :param get_state: (bool) if True node_state are propagated through LGNN layers
-        :param get_output: (bool) if True gnn_outputs are propagated through LGNN layers
-        :param optimizer: (tf.keras.optimizers) for gradient application, initialized externally
-        :param loss_function: (tf.keras.losses) or (tf.function) for the loss computation
-        :param loss_arguments: (dict) with some {'argument':values} one could pass to loss when computed
-        :param addressed_problem: (str) in ['r','c'], 'r':regression, 'c':classification for the addressed problem
-        :param extra_metrics: None or dict {'name':function} for metrics to be watched during training/validaion/test
-        :param extra_metrics_arguments: None or dict {'name':{'argument':value}} for arguments to be passed to extra_metrics
-        :param path_writer: (str) path for saving TensorBoard objects
-        :param namespace: (str) namespace for tensorboard visualization
+        :param gnns: (list) of instances of type GNN representing LGNN layers, initialized externally.
+        :param get_state: (bool) if True node_state are propagated through LGNN layers.
+        :param get_output: (bool) if True gnn_outputs on nodes/arcs are propagated through LGNN layers.
+        :param optimizer: (tf.keras.optimizers) for gradient application, initialized externally.
+        :param loss_function: (tf.keras.losses) for the loss computation.
+        :param loss_arguments: (dict) with some {'argument':values} one could pass to loss when computed.
+        :param addressed_problem: (str) in ['r','c'], 'r':regression, 'c':classification for the addressed problem.
+        :param extra_metrics: None or dict {'name':function} for metrics to be watched during training/validation/test procedures.
+        :param extra_metrics_arguments: None or dict {'name':{'argument':value}} for arguments passed to extra_metrics['name'].
+        :param path_writer: (str) path for saving TensorBoard objects in training procedure. If folder is not empty, all files are removed.
+        :param namespace: (str) namespace for tensorboard visualization.
         """
 
         GNNS_TYPE = set([type(i) for i in gnns])
@@ -67,9 +67,10 @@ class LGNN(BaseGNN):
     def copy(self, *, path_writer: str = '', namespace: str = '', copy_weights: bool = True) -> 'LGNN':
         """ COPY METHOD
 
-        :param path_writer: None or (str), to save copied lgnn writer. Default is in the same folder + '_copied'
-        :param copy_weights: (bool) True: state and output weights are copied; False: state and output weights are re-initialized
-        :return: a Deep Copy of the lgnn instance.
+        :param path_writer: None or (str), to save copied lgnn tensorboard writer. Default in the same folder + '_copied'.
+        :param namespace: (str) for tensorboard visualization in model training procedure.
+        :param copy_weights: (bool) True: state and output weights of gnns are copied in new lgnn, otherwise they are re-initialized.
+        :return: a Deep Copy of the LGNN instance.
         """
         return self.__class__(gnns=[i.copy(copy_weights=copy_weights) for i in self.gnns], get_state=self.get_state,
                               get_output=self.get_output,
@@ -81,7 +82,7 @@ class LGNN(BaseGNN):
 
     ## SAVE AND LOAD METHODs ##########################################################################################
     def save(self, path: str):
-        """ save model to folder <path>"""
+        """ Save model to folder <path> """
         from json import dump
 
         # check paths
@@ -104,12 +105,12 @@ class LGNN(BaseGNN):
     # -----------------------------------------------------------------------------------------------------------------
     @classmethod
     def load(self, path: str, path_writer: str, namespace: str = 'LGNN'):
-        """ load model from folder
+        """ Load model from folder <path>
 
-        :param path: (str) folder path containing all useful files to load the model
-        :param path_writer: (str) path for writer folder. !!! Constructor method makes delete a non-empty folder and makes a new empty one
-        :param namespace: (str) namespace for tensorboard visualization of the model in training procedure
-        :return: the model
+        :param path: (str) folder path containing all useful files to load the model.
+        :param path_writer: (str) path for writer folder. !!! Constructor method deletes a non-empty folder and makes a new empty one.
+        :param namespace: (str) namespace for tensorboard visualization in model training procedure.
+        :return: the loaded lgnn model.
         """
         from json import loads
         from os import listdir
@@ -141,17 +142,17 @@ class LGNN(BaseGNN):
 
     ## GETTERS AND SETTERS METHODs ####################################################################################
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:
-        """ get tensor weights for net_state and net_output for each gnn layer """
+        """ Get tensor weights for net_state and net_output for each gnn layer """
         return [i.net_state.trainable_variables for i in self.gnns], [i.net_output.trainable_variables for i in self.gnns]
 
     # -----------------------------------------------------------------------------------------------------------------
     def get_weights(self) -> tuple[list[list[array]], list[list[array]]]:
-        """ get array weights for net_state and net_output for each gnn layer """
+        """ Get array weights for net_state and net_output for each gnn layer """
         return [i.net_state.get_weights() for i in self.gnns], [i.net_output.get_weights() for i in self.gnns]
 
     # -----------------------------------------------------------------------------------------------------------------
     def set_weights(self, weights_state: list[list[array]], weights_output: list[list[array]]) -> None:
-        """ set weights for net_state and net_output for each gnn layer """
+        """ Set weights for net_state and net_output for each gnn layer """
         assert len(weights_state) == len(weights_output) == self.LAYERS
         for gnn, wst, wout in zip(self.gnns, weights_state, weights_output):
             gnn.net_state.set_weights(wst)
@@ -159,15 +160,14 @@ class LGNN(BaseGNN):
 
     ## CALL/PREDICT METHOD ############################################################################################
     def __call__(self, g: GraphObject) -> tf.Tensor:
-        """ return ONLY the LGNN output for graph g of type GraphObject """
+        """ Return ONLY the LGNN output for graph g of type GraphObject """
         out = self.Loop(g, training=False)[-1]
         return out[-1]
 
     # -----------------------------------------------------------------------------------------------------------------
     def predict(self, g: GraphObject, idx: Union[int, list[int], range] = -1) -> Union[tf.Tensor, list[tf.Tensor]]:
-        """ get LGNN output(s)
-
-        :param g: (GraphObject) single element GraphObject
+        """ Get LGNN one or more output(s) in test mode (training == False) for graph g of type GraphObject
+        :param g: (GraphObject) single GraphObject element
         :param idx: set the layer whose output is wanted to be returned.
                     More than one layer output can be returned, setting idx as ordered list/range
         :return: a list of output(s) of the model processing graph g
@@ -186,11 +186,13 @@ class LGNN(BaseGNN):
     ## EVALUATE METHODS ###############################################################################################
     def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[int, float], array[int, float]],
                               training: bool) -> tuple:
-        """
-        :param g: (GraphObject) single element GraphObject
-        :param class_weights: in classification task, it can be an int, flot, list of ints or floats, compatible with 1hot target matrix (under review)
+        """ Evaluate single GraphObject element g in test mode (training == False)
+
+        :param g: (GraphObject) single GraphObject element
+        :param class_weights: in classification task, it can be an int, float, list of ints or floats, compatible with 1hot target matrix
+                              > In future version it will be modified.
         :param training: (bool) set internal models behavior, s.t. they work in training or testing mode
-        :return: (tuple) convergence iteration, loss value, target and output of the model
+        :return: (tuple) convergence iteration (int), loss value (matrix), target and output (matrices) of the model
         """
         # get targets
         targs = self.get_graph_target(g)
@@ -210,7 +212,7 @@ class LGNN(BaseGNN):
     ## LOOP METHODS ###################################################################################################
     def update_graph(self, g: GraphObject, state: Union[tf.Tensor, array], output: Union[tf.Tensor, array]) -> GraphObject:
         """
-        :param g: (GraphObject) single element GraphObject the update process is based on
+        :param g: (GraphObject) single GraphObject element the update process is based on
         :param state: (tensor) output of the net_state model of a single gnn layer
         :param output: (tensor) output of the net_output model of a single gnn layer
         :return: (GraphObject) a new GraphObject where state and/or output are integrated in nodes/arcs label
@@ -247,7 +249,7 @@ class LGNN(BaseGNN):
 
     # -----------------------------------------------------------------------------------------------------------------
     def Loop(self, g: GraphObject, *, training: bool = False) -> tuple[list[Union[int, Any]], tf.Tensor, list[Union[tf.Tensor, Any]]]:
-        """ process a single graph, returning iterations, states and outputs """
+        """ Process a single GraphObject element g, returning iteration, states and output """
         K, outs = list(), list()
         gtmp = g.copy()
 
@@ -275,24 +277,25 @@ class LGNN(BaseGNN):
               *, mean: bool = True, training_mode: str = 'residual', verbose: int = 3) -> None:
         """ LEARNING PROCEDURE
 
-        :param gTr: GraphObject or list of GraphObjects used for the learning procedure
-        :param epochs: (int) the max number of epochs for the learning procedure
-        :param gVa: element/list of GraphsObjects for early stopping. Default None, no early stopping performed
+        :param gTr: GraphObject or list of GraphObjects used for the learning procedure.
+        :param epochs: (int) the max number of epochs for the learning procedure.
+        :param gVa: element/list of GraphsObjects for early stopping. Default None, no early stopping performed.
         :param update_freq: (int) how many epochs must be completed before evaluating gVa and gTr and/or print learning progress. Default 10.
-        :param max_fails: (int) specifies the max number of failures before early sopping. Default 10.
+        :param max_fails: (int) specifies the max number of failures in gVa improvement loss evaluation before early sopping. Default 10.
         :param class_weights: (list) [w0, w1,...,wc] in classification task when targets are 1-hot, specify the weight for weighted loss. Default 1.
-        :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, otherwise as the mean. Default True.
+                                     > removed in future version
         :param training_mode: (str) in ['serial','parallel','residual']
             > 'serial' - GNNs are trained separately, from layer 0 to layer N
             > 'parallel' - GNNs are trained all together, from loss = sum( Loss_Function( t, Oi) ) where Oi is the output of GNNi
             > 'residual' - GNNs are trained all together, from loss = Loss_Function(i, phi(Oi))
+        :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, otherwise as the mean. Default True.
         :param verbose: (int) 0: silent mode; 1: print history; 2: print epochs/batches, 3: history + epochs/batches. Default 3.
         :return: None
         """
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         def checktype(elem: Optional[Union[GraphObject, list[GraphObject]]]) -> list[GraphObject]:
-            """ check if type(elem) is correct. If so, return None or a list og GraphObjects """
+            """ Check if type(elem) is correct. If so, return None or a list og GraphObjects """
             if elem is None:
                 pass
             elif type(elem) == GraphObject:
@@ -307,6 +310,7 @@ class LGNN(BaseGNN):
         assert training_mode in ['parallel', 'serial', 'residual']
         self.training_mode = training_mode
 
+        # SERIAL TRAINING
         if training_mode == 'serial':
             gTr, gVa = checktype(gTr), checktype(gVa)
             gTr1, gVa1 = [i.copy() for i in gTr], [i.copy() for i in gVa] if gVa else None
@@ -324,5 +328,6 @@ class LGNN(BaseGNN):
                     _, sVa, oVa = zip(*[super(GNNgraphBased, gnn).Loop(i) if type(gnn) == GNNgraphBased else gnn.Loop(i) for i in gVa1])
                     gVa1 = [self.update_graph(i, s, o) for i, s, o in zip(gVa, sVa, oVa)]
 
+        # RESIDUAL OR PARALLEL TRAINING
         else:
             super().train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)

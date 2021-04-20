@@ -35,19 +35,19 @@ class GNNnodeBased(BaseGNN):
                  namespace: str = 'GNN') -> None:
         """ CONSTRUCTOR
 
-        :param net_state: (tf.keras.model.Sequential) MLP for the state network, initialized externally
-        :param net_output: (tf.keras.model.Sequential) MLP for the output network, initialized externally
-        :param optimizer: (tf.keras.optimizers) for gradient application, initialized externally
-        :param loss_function: (tf.keras.losses) or (tf.function) for the loss computation
-        :param loss_arguments: (dict) with some {'argument':values} one could pass to loss when computed
-        :param state_vect_dim: None or (int)>=0, vector dim for a GNN which does not initialize states with node labels
-        :param max_iteration: (int) max number of iteration for the unfolding procedure (to reach convergence)
-        :param threshold: threshold for specifying if convergence is reached or not
-        :param addressed_problem: (str) in ['r','c'], 'r':regression, 'c':classification for the addressed problem
-        :param extra_metrics: None or dict {'name':function} for metrics to be watched during training/validaion/test
-        :param extra_metrics_arguments: None or dict {'name':{'argument':value}} for arguments to be passed to extra_metrics
-        :param path_writer: (str) path for saving TensorBoard objects
-        :param namespace: (str) namespace for tensorboard visualization
+        :param net_state: (tf.keras.model.Sequential) MLP for the state network, initialized externally.
+        :param net_output: (tf.keras.model.Sequential) MLP for the output network, initialized externally.
+        :param optimizer: (tf.keras.optimizers) for gradient application, initialized externally.
+        :param loss_function: (tf.keras.losses) for the loss computation.
+        :param loss_arguments: (dict) with some {'argument':values} one could pass to loss when computed.
+        :param state_vect_dim: None or (int)>=0, vector dim for a GNN which does not initialize states with node labels.
+        :param max_iteration: (int) max number of iteration for the unfolding procedure (to reach convergence).
+        :param threshold: threshold for specifying if convergence is reached or not.
+        :param addressed_problem: (str) in ['r','c'], 'r':regression, 'c':classification for the addressed problem.
+        :param extra_metrics: None or dict {'name':function} for metrics to be watched during training/validation/test procedures.
+        :param extra_metrics_arguments: None or dict {'name':{'argument':value}} for arguments passed to extra_metrics['name'].
+        :param path_writer: (str) path for saving TensorBoard objects in training procedure. If folder is not empty, all files are removed.
+        :param namespace: (str) namespace for tensorboard visualization.
         """
         # Check arguments
         if type(state_vect_dim) != int or state_vect_dim < 0: raise TypeError('param <state_vect_dim> must be int>=0')
@@ -66,9 +66,9 @@ class GNNnodeBased(BaseGNN):
     def copy(self, *, path_writer: str = '', namespace: str = '', copy_weights: bool = True) -> 'self':
         """ COPY METHOD
 
-        :param path_writer: None or (str), to save copied gnn writer. Default is in the same folder + '_copied'
-        :param namespace: (str) for tensorboard visualization in model training procedure
-        :param copy_weights: (bool) True: copied_gnn.nets==self.nets; False: state and output are re-initialized
+        :param path_writer: None or (str), to save copied gnn tensorboard writer. Default in the same folder + '_copied'.
+        :param namespace: (str) for tensorboard visualization in model training procedure.
+        :param copy_weights: (bool) True: state and output weights are copied in new gnn, otherwise they are re-initialized.
         :return: a Deep Copy of the GNN instance.
         """
         netS = tf.keras.models.clone_model(self.net_state)
@@ -76,6 +76,7 @@ class GNNnodeBased(BaseGNN):
         if copy_weights:
             netS.set_weights(self.net_state.get_weights())
             netO.set_weights(self.net_output.get_weights())
+
         return self.__class__(net_state=netS, net_output=netO, optimizer=self.optimizer.__class__(**self.optimizer.get_config()),
                               loss_function=self.loss_function, loss_arguments=self.loss_args, max_iteration=self.max_iteration,
                               threshold=self.state_threshold, addressed_problem=self.addressed_problem, extra_metrics=self.extra_metrics,
@@ -85,7 +86,7 @@ class GNNnodeBased(BaseGNN):
 
     ## SAVE AND LOAD METHODs ##########################################################################################
     def save(self, path: str):
-        """ save model to folder <path>"""
+        """ Save model to folder <path> """
         from json import dump
 
         # check path
@@ -108,12 +109,12 @@ class GNNnodeBased(BaseGNN):
     # -----------------------------------------------------------------------------------------------------------------
     @classmethod
     def load(self, path: str, path_writer: str, namespace: str = 'GNN'):
-        """
-        load model from folder
-        :param path: (str) folder path containing all useful files to load the model
-        :param path_writer: (str) path for writer folder. !!! Constructor method makes delete a non-empty folder and makes a new empty one
-        :param namespace: (str) namespace for tensorboard visualization in model training procedure
-        :return: the loaded model
+        """ Load model from folder <path>
+
+        :param path: (str) folder path containing all useful files to load the model.
+        :param path_writer: (str) path for writer folder. !!! Constructor method deletes a non-empty folder and makes a new empty one.
+        :param namespace: (str) namespace for tensorboard visualization in model training procedure.
+        :return: the loaded gnn model. GNN type depends on class which call load method.
         """
         from json import loads
         from GNN.GNN_metrics import Metrics
@@ -140,33 +141,35 @@ class GNNnodeBased(BaseGNN):
 
     ## GETTERS AND SETTERS METHODs ####################################################################################
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:
-        """ get tensor weights for net_state and net_output """
+        """ Get tensor weights for net_state and net_output """
         return [self.net_state.trainable_variables], [self.net_output.trainable_variables]
 
     # -----------------------------------------------------------------------------------------------------------------
     def get_weights(self) -> tuple[list[list[array]], list[list[array]]]:
-        """ get array weights for net_state and net_output """
+        """ Get array weights for net_state and net_output """
         return [self.net_state.get_weights()], [self.net_output.get_weights()]
 
     # -----------------------------------------------------------------------------------------------------------------
     def set_weights(self, weights_state: list[list[array]], weights_output: list[list[array]]) -> None:
-        """ set weights for net_state and net_output """
+        """ Set weights for net_state and net_output """
         assert len(weights_state) == len(weights_output) == 1
         self.net_state.set_weights(weights_state[0])
         self.net_output.set_weights(weights_output[0])
 
     ## CALL/PREDICT METHOD ############################################################################################
     def __call__(self, g: GraphObject) -> tf.Tensor:
-        """ return ONLY the GNN output in testo mode (training == False) for graph g of type GraphObject """
+        """ Return ONLY the GNN output in test mode (training == False) for graph g of type GraphObject """
         return self.Loop(g, training=False)[-1]
 
     ## EVALUATE METHODS ###############################################################################################
     def evaluate_single_graph(self, g: GraphObject, class_weights: Union[int, float, list[float]], training: bool) -> tuple:
-        """
-        :param g: (GraphObject) single element GraphObject
-        :param class_weights: in classification task, it can be an int, flot, list of ints or floats, compatible with 1hot target matrix (under review)
+        """ Evaluate single GraphObject element g in test mode (training == False)
+
+        :param g: (GraphObject) single GraphObject element
+        :param class_weights: in classification task, it can be an int, float, list of ints or floats, compatible with 1hot target matrix
+                              > In future version it will be modified.
         :param training: (bool) set internal models behavior, s.t. they work in training or testing mode
-        :return: (tuple) convergence iteration, loss value, target and output of the model
+        :return: (tuple) convergence iteration (int), loss value (matrix), target and output  (matrices) of the model
         """
         # get targets
         targs = self.get_graph_target(g)
@@ -180,7 +183,6 @@ class GNNnodeBased(BaseGNN):
         return it, loss, targs, out
 
     ## LOOP METHODS ###################################################################################################
-    # @tf.function
     def condition(self, k, state, state_old, *args) -> tf.bool:
         """ Boolean function condition for tf.while_loop correct processing graphs """
 
@@ -202,17 +204,13 @@ class GNNnodeBased(BaseGNN):
         return tf.logical_and(c1, c2)
 
     # -----------------------------------------------------------------------------------------------------------------
-    # @tf.function
     def convergence(self, k, state, state_old, nodes, nodes_index, arcs_label, arcnode, training) -> tuple:
-        """ compute new state for the nodes graph """
+        """ Compute new state for the nodes graph """
         # compute the incoming message for each node: shape == (len(source_nodes_index, Num state components)
         source_state = tf.gather(state, nodes_index[:, 0])
 
         # concatenate the gathered source node states with the corresponding arc labels
-        try:
-            arc_message = tf.concat([source_state, arcs_label], axis=1)
-        except:
-            print('ciao')
+        arc_message = tf.concat([source_state, arcs_label], axis=1)
         if self.state_vect_dim:
             source_label = tf.gather(nodes, nodes_index[:, 0])
             arc_message = tf.concat([source_label, arc_message], axis=1)
@@ -228,15 +226,14 @@ class GNNnodeBased(BaseGNN):
         return k + 1, state_new, state, nodes, nodes_index, arcs_label, arcnode, training
 
     # -----------------------------------------------------------------------------------------------------------------
-    # @tf.function
     def apply_filters(self, state_converged, nodes, nodes_index, arcs_label, mask) -> tf.Tensor:
-        """ takes only nodes states for those with output_mask==1 AND belonging to set (in case Dataset == 1 Graph) """
+        """ Takes only nodes states for those with output_mask==1 AND belonging to set (in case Dataset == 1 Graph) """
         if self.state_vect_dim: state_converged = tf.concat((nodes, state_converged), axis=1)
         return tf.boolean_mask(state_converged, mask)
 
     # -----------------------------------------------------------------------------------------------------------------
     def Loop(self, g: GraphObject, *, training: bool = False) -> tuple[int, tf.Tensor, tf.Tensor]:
-        """ process a single graph, returning iteration, states and output """
+        """ Process a single GraphObject element g, returning iteration, states and output """
         # retrieve quantities from graph f
         nodes = tf.constant(g.getNodes(), dtype=tf.float32)
         nodes_index = tf.constant(g.getArcs()[:, :2], dtype=tf.int32)
@@ -301,10 +298,11 @@ class GNNgraphBased(GNNnodeBased):
 
     @staticmethod
     def get_graph_target(g):
+        """ Get targets for graph based problems -> nodes states are not filtered by set_mask and output_mask """
         return tf.constant(g.getTargets(), dtype=tf.float32)
 
     def Loop(self, g: GraphObject, *, training: bool = False) -> tuple[int, tf.Tensor, tf.Tensor]:
-        """ process a single graph, returning iteration, states and output. Output of graph-based problem is the averaged nodes output """
+        """ Process a single graph, returning iteration, states and output. Output of graph-based problem is the averaged nodes output """
 
         # get iter, states and output of every nodes from GNNnodeBased
         iter, state_nodes, out_nodes = super().Loop(g, training=training)
@@ -324,10 +322,10 @@ class GNN2(GNNnodeBased):
     """ porting of the tensorflow 1.x version of old GNNnodeBased problem
     in which net_state takes as input node_source_label | node_destination_label | edge_label, and THEN sum-up for aggregation.
 
-    In new version, aggregation is done on nodes_labels, not on net_state_output """
+    In new version, aggregation is done on nodes and edges labels BEFORE net_state, not on the output of net_state """
 
-    # @tf.function
     def convergence(self, k, state, state_old, nodes, nodes_index, arcs_label, arcnode, training):
+        """ Compute new state for the nodes graph """
         # gather source nodes label
         source_label = tf.gather(nodes, nodes_index[:, 0])
         source_label = tf.cast(source_label, tf.float32)

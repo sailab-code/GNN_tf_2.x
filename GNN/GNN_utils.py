@@ -23,7 +23,7 @@ def randomGraph(nodes_number: int, dim_node_label: int, dim_arc_label: int, dim_
     :param dim_target: number of components for a generic target 1-hot
     :param density: define the "max" density for the graph
     :param normalize_features: (bool) if True normalize the column of the labels, otherwise raw data will be considered
-    :param aggregation: (str) in ['average','normalized','sum']. Default 'average'. See GraphObject.ArcNode for details
+    :param aggregation: (str) in ['average','normalized','sum']. Default 'average'. Go to GraphObject.buildArcNode() for details
     :param problem_based: (str) in ['n','a','g']: 'n'-nodeBased; 'a'-arcBased; 'g'-graphBased
     :return: GraphObject
     """
@@ -70,8 +70,8 @@ def randomGraph(nodes_number: int, dim_node_label: int, dim_arc_label: int, dim_
     else:
         targs[0, np.random.choice(range(targs.shape[1]))] = 1
 
-    # OUTPUT MASK
-    output_mask = np.ones(arcs.shape[0] if problem_based == 'a' else nodes.shape[0])
+    # OUTPUT MASK - all nodes/arcs have known target
+    output_mask = np.ones(arcs.shape[0] if problem_based == 'a' else nodes.shape[0], dtype=bool)
 
     # NORMALIZE FEATURES
     if normalize_features:
@@ -88,6 +88,7 @@ def simple_graph(problem_based: str, aggregation: str = 'average') -> GraphObjec
     """ return a single simple GraphObject for debugging purpose """
     nodes = np.array([[11, 21], [12, 22], [13, 23], [14, 24]])
     arcs = np.array([[0, 1, 10], [0, 2, 40], [1, 0, 10], [1, 2, 20], [2, 0, 40], [2, 1, 20], [2, 3, 30], [3, 2, 30]])
+
     tn = {'n': nodes.shape[0], 'a': arcs.shape[0], 'g': 1}
     target_number = tn[problem_based]
     targs = np.zeros((target_number, 2))
@@ -143,6 +144,7 @@ def getindices(len_dataset: int, perc_Train: float = 0.7, perc_Valid: float = 0.
 
     # train indices (usually the longest set)
     train_idx = idx[sampleTest + sampleValid:]
+
     return (train_idx, test_idx, valid_idx)
 
 
@@ -155,7 +157,7 @@ def getSet(glist: list[GraphObject], set_indices: list[int], problem_based: str,
     :param set_indices: (list of int) indices of the elements belonging to the Set
     :param problem_based: (str) in ['n','a','g'] defining the problem to be faced: [node, arcs, graph]-based
     :param verbose: (bool) if True print the progressbar, else silent mode
-    :return: list of GraphObject, composing the Set
+    :return: list of GraphObjects, composing the Set
     """
     # check type
     if not (type(glist) == list and all(isinstance(x, str) for x in glist)):
@@ -166,8 +168,8 @@ def getSet(glist: list[GraphObject], set_indices: list[int], problem_based: str,
     for i, elem in enumerate(set_indices):
         setlist.append(glist[elem])
         if verbose: progressbar((i + 1) * 100 / length)
-    setlist = [GraphObject.load(i, problem_based=problem_based, node_aggregation=node_aggregation) for i in setlist]
-    return setlist
+
+    return [GraphObject.load(i, problem_based=problem_based, node_aggregation=node_aggregation) for i in setlist]
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -200,7 +202,7 @@ def normalize_graphs(gTr: Union[GraphObject, list[GraphObject]], gVa: Optional[U
     :param gTr: (GraphObject or list of GraphObjects) for Training Set
     :param gVa: (GraphObject or list of GraphObjects or None) for Validation Set
     :param gTe: (GraphObject or list of GraphObjects or None) for Test Set
-    :param based_on: (str) in ['gTr','all']. If 'gTr', ony info on gTr are used; if 'all', entire dataset info are used
+    :param based_on: (str) in ['gTr','all']. If 'gTr', only gTr data is used; if 'all', entire dataset data is used
     """
 
     def checktype(g: Union[list[GraphObject], None], name: str):
@@ -208,7 +210,6 @@ def normalize_graphs(gTr: Union[GraphObject, list[GraphObject]], gVa: Optional[U
         if g is None: return list()
         if not (type(g) == GraphObject or (type(g) == list and all(isinstance(x, GraphObject) for x in g))):
             raise TypeError(f'type of param <{name}> must be GraphObject or list of Graphobjects')
-        #return [i.copy() for i in g] if type(g) == list else [g.copy()]
         return g if type(g) == list else [g]
 
     # check if inputs are GraphObject OR list(s) of GraphObject(s) and the normalization method
@@ -229,5 +230,3 @@ def normalize_graphs(gTr: Union[GraphObject, list[GraphObject]], gVa: Optional[U
     for i in gTr + gVa + gTe:
         i.nodes = node_scaler.transform(i.nodes)
         i.arcs = arcs_scaler.transform(i.arcs)
-
-    #return gTr, gVa, gTe
