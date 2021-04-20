@@ -75,6 +75,7 @@ def get_inout_dims(net_name: str, dim_node_label: int, dim_arc_label: int, dim_t
     :param get_output: (bool) LGNN USE: set accordingly to LGNN behaviour, if gnns get state, output or both from previous layer
     """
     assert net_name in ['state', 'output']
+    assert len(problem) in [1,2]
     assert layer >= 0
 
     if len(problem) == 1: problem += '1'
@@ -91,17 +92,19 @@ def get_inout_dims(net_name: str, dim_node_label: int, dim_arc_label: int, dim_t
             NL = NL + layer * NL * GS + ((layer - 1) * GS + 1) * T * (P != 'a') * GO
             AL = AL + T * (P == 'a') * GO
 
-    # MLP output
-    if net_name == 'output':
-        input_shape = (problem[0] == 'a') * (NL + AL + DS) + NL + dim_state
-        output_shape = T
-
     # MLP state
-    else:
+    if net_name == 'state':
         input_shape = AL + 2 * NL + DS * (1 + (problem[1] == '1'))
         input_shape += NL * (DS == 0) * (problem[1] == '2')
         output_shape = DS if DS else NL
-
+        
+    # MLP output
+    elif net_name == 'output':
+        input_shape = (problem[0] == 'a') * (NL + AL + DS) + NL + dim_state
+        output_shape = T
+    
+    else:
+        raise ValueError()
     # hidden part
     if hidden_units is None or type(hidden_units) == int and hidden_units <= 0: hidden_units = []
     if type(hidden_units) == list:
