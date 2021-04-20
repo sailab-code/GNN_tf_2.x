@@ -138,7 +138,7 @@ class LGNN(BaseGNN):
         # get extra metrics
         extra_metrics = {i: Metrics[i] for i in config.pop('extra_metrics')}
         return self(gnns=gnns, optimizer=optz, loss_function=loss, extra_metrics=extra_metrics,
-                    path_writer=path_writer, namespace=namespace, **config)
+                       path_writer=path_writer, namespace=namespace, **config)
 
     ## GETTERS AND SETTERS METHODs ####################################################################################
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:

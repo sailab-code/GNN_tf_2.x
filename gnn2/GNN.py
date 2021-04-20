@@ -269,7 +269,7 @@ class GNNnodeBased(BaseGNN):
 class GNNedgeBased(GNNnodeBased):
     """ GNN for edge-based problem """
 
-    # @tf.function
+    # -----------------------------------------------------------------------------------------------------------------
     def apply_filters(self, state_converged, nodes, nodes_index, arcs_label, mask) -> tf.Tensor:
         """ takes only arcs info of those with output_mask==1 AND belonging to set (in case Dataset == 1 Graph) """
         if self.state_vect_dim: state_converged = tf.concat((nodes, state_converged), axis=1)
@@ -296,11 +296,13 @@ class GNNedgeBased(GNNnodeBased):
 class GNNgraphBased(GNNnodeBased):
     """ GNN for graph-based problem """
 
+    # -----------------------------------------------------------------------------------------------------------------
     @staticmethod
     def get_graph_target(g):
         """ Get targets for graph based problems -> nodes states are not filtered by set_mask and output_mask """
         return tf.constant(g.getTargets(), dtype=tf.float32)
 
+    # -----------------------------------------------------------------------------------------------------------------
     def Loop(self, g: GraphObject, *, training: bool = False) -> tuple[int, tf.Tensor, tf.Tensor]:
         """ Process a single graph, returning iteration, states and output. Output of graph-based problem is the averaged nodes output """
 
@@ -324,6 +326,7 @@ class GNN2(GNNnodeBased):
 
     In new version, aggregation is done on nodes and edges labels BEFORE net_state, not on the output of net_state """
 
+    # -----------------------------------------------------------------------------------------------------------------
     def convergence(self, k, state, state_old, nodes, nodes_index, arcs_label, arcnode, training):
         """ Compute new state for the nodes graph """
         # gather source nodes label

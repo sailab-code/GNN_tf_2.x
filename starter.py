@@ -15,9 +15,8 @@ from GNN.graph_class import GraphObject
 # SCRIPT OPTIONS - modify the parameters to adapt the execution to the problem under consideration ####################
 #######################################################################################################################
 
-# MUTAG option - if True, gnn/lgnn is trained on a real-world dataset MUTAG, set problem_type to 'cg' or 'cg1'
+# MUTAG option - if True, gnn/lgnn is trained on a real-world dataset MUTAG, problem_type is set automatically to 'cg1'
 use_MUTAG: bool = False
-
 
 # GENERIC GRAPH PARAMETERS. See utils.randomGraph for details
 # Node and edge labels are initialized randomly. Target clusters are given by sklearn.
@@ -27,57 +26,57 @@ use_MUTAG: bool = False
 # problem_type in ['cn', 'cn1', 'cn2', 'rn', 'rn1', 'rn2', 'ca', 'ca1', 'ra', 'ra1', 'cg', 'cg1', 'rg', 'rg1']
 # > ['c' classification, 'r' regression] + ['g' graph-based; 'n' node-based; 'a' arc-based;] +[('','1') GNN1, '2' GNN2]
 # > Example: 'ca' or 'ca1': arc-based classification with GNN; 'rn2' node-based regression with GNN2 (Rossi-Tiezzi)
-problem_type: str = 'cn'
-graphs_number: int = 100
-min_nodes_number: int = 15
-max_nodes_number: int = 40
-dim_node_label: int = 3
-dim_arc_label: int = 1
-dim_target: int = 2
-density: float = 0.7
-node_aggregation: str = 'average'
+problem_type        : str = 'cn'
+graphs_number       : int = 100
+min_nodes_number    : int = 15
+max_nodes_number    : int = 40
+dim_node_label      : int = 3
+dim_arc_label       : int = 1
+dim_target          : int = 2
+density             : float = 0.7
+node_aggregation    : str = 'average'
 
 # LEARNING SETS PARAMETERS
-perc_Train: float = 0.7
-perc_Valid: float = 0.2
-batch_size: int = 32
-normalize: bool = True
-seed: Optional[int] = None
-norm_nodes_range: Optional[tuple[Union[int, float], Union[int, float]]] = None  # (-1,1) # other possible value
-norm_arcs_range: Optional[tuple[Union[int, float], Union[int, float]]] = None  # (0,1) # other possible value
+perc_Train          : float = 0.7
+perc_Valid          : float = 0.2
+batch_size          : int = 32
+normalize           : bool = True
+seed                : Optional[int] = None
+norm_nodes_range    : Optional[tuple[Union[int, float], Union[int, float]]] = None  # (-1,1) # other possible value
+norm_arcs_range     : Optional[tuple[Union[int, float], Union[int, float]]] = None  # (0,1) # other possible value
 
 # NET STATE PARAMETERS
-activations_net_state: str = 'selu'
-kernel_init_net_state: str = 'lecun_normal'
-bias_init_net_state: str = 'lecun_normal'
-dropout_rate_st: float = 0.1
-dropout_pos_st: Union[list[int], int] = [0, 1]
-hidden_units_net_state: Optional[Union[list[int], int]] = [150, 150]
+activations_net_state   : str = 'selu'
+kernel_init_net_state   : str = 'lecun_normal'
+bias_init_net_state     : str = 'lecun_normal'
+dropout_rate_st         : float = 0.1
+dropout_pos_st          : Union[list[int], int] = 0
+hidden_units_net_state  : Optional[Union[list[int], int]] = [150, 150]
 
 ### NET OUTPUT PARAMETERS
-activations_net_output: str = 'softmax'
-kernel_init_net_output: str = 'glorot_normal'
-bias_init_net_output: str = 'glorot_normal'
-dropout_rate_out: float = 0.1
-dropout_pos_out: Union[list[int], int] = 0
-hidden_units_net_output: Optional[Union[list[int], int]] = [150]
+activations_net_output  : str = 'softmax'
+kernel_init_net_output  : str = 'glorot_normal'
+bias_init_net_output    : str = 'glorot_normal'
+dropout_rate_out        : float = 0.1
+dropout_pos_out         : Union[list[int], int] = 0
+hidden_units_net_output : Optional[Union[list[int], int]] = [150]
 
 # GNN PARAMETERS
-dim_state: int = 3
-max_iter: int = 3
-state_threshold: float = 0.01
+dim_state       : int = 3
+max_iter        : int = 3
+state_threshold : float = 0.01
 
 # LGNN PARAMETERS
-layers: int = 5
-get_state: bool = True
-get_output: bool = True
-path_writer: str = 'writer/'
-optimizer: tf.keras.optimizers = tf.optimizers.Adam(learning_rate=0.001)
-lossF: tf.function = tf.keras.losses.categorical_crossentropy
-lossArguments: Optional[dict[str, callable]] = {'from_logits': False}
-extra_metrics: Optional[dict[str, callable]] = {i: mt.Metrics[i] for i in
-                                                ['Acc', 'Bacc', 'Tpr', 'Tnr', 'Fpr', 'Fnr', 'Ck', 'Js', 'Prec', 'Rec', 'Fs']}
-metrics_args: Optional[dict[str, dict[str, any]]] = {i: {'avg': 'weighted', 'pos_label': 1} for i in ['Fs', 'Prec', 'Rec', 'Js']}
+layers          : int = 5
+get_state       : bool = True
+get_output      : bool = True
+path_writer     : str = 'writer/'
+optimizer       : tf.keras.optimizers = tf.optimizers.Adam(learning_rate=0.001)
+lossF           : tf.function = tf.keras.losses.categorical_crossentropy
+lossArguments   : Optional[dict[str, callable]] = {'from_logits': False}
+extra_metrics   : Optional[dict[str, callable]] = {i: mt.Metrics[i] for i in
+                                                   ['Acc', 'Bacc', 'Tpr', 'Tnr', 'Fpr', 'Fnr', 'Ck', 'Js', 'Prec', 'Rec', 'Fs']}
+metrics_args    : Optional[dict[str, dict[str, any]]] = {i: {'avg': 'weighted', 'pos_label': 1} for i in ['Fs', 'Prec', 'Rec', 'Js']}
 
 #######################################################################################################################
 # SCRIPT ##############################################################################################################
@@ -143,11 +142,11 @@ input_net_out, layers_net_out = zip(*[get_inout_dims(net_name='output', dim_node
                                                      hidden_units=hidden_units_net_output,
                                                      layer=i, get_state=get_state, get_output=get_output) for i in range(layers)])
 nets_Out = [MLP(input_dim=i, layers=j,
-                activations=activations_net_state,
-                kernel_initializer=kernel_init_net_state,
-                bias_initializer=bias_init_net_state,
-                dropout_rate=dropout_rate_st,
-                dropout_pos=dropout_pos_st) for i, j in zip(input_net_out, layers_net_out)]
+                activations=activations_net_output,
+                kernel_initializer=kernel_init_net_output,
+                bias_initializer=bias_init_net_output,
+                dropout_rate=dropout_rate_out,
+                dropout_pos=dropout_pos_out) for i, j in zip(input_net_out, layers_net_out)]
 
 # GNNs
 gnntype = {'n1': GNNnodeBased, 'n2': GNN2, 'a1': GNNedgeBased, 'g1': GNNgraphBased}[problem_type[1:]]

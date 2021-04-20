@@ -74,11 +74,13 @@ class BaseGNN(ABC):
         """
         pass
 
+    # -----------------------------------------------------------------------------------------------------------------
     @abstractmethod
     def save(self, path: str) -> None:
         """ Save model to folder <path> """
         pass
 
+    # -----------------------------------------------------------------------------------------------------------------
     @staticmethod
     @abstractmethod
     def load(path: str, path_writer: str, namespace: str):
@@ -91,25 +93,35 @@ class BaseGNN(ABC):
         """
         pass
 
+    # -----------------------------------------------------------------------------------------------------------------
     @abstractmethod
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:
         """ Get tensor weights for net_state and net_output for each gnn layer """
         pass
 
+    # -----------------------------------------------------------------------------------------------------------------
     @abstractmethod
     def get_weights(self) -> tuple[list[list[array]], list[list[array]]]:
         """ Get array weights for net_state and net_output for each gnn layer """
         pass
 
+    # -----------------------------------------------------------------------------------------------------------------
     @abstractmethod
     def set_weights(self, weights_state: Union[list[array], list[list[array]]],
                     weights_output: Union[list[array], list[list[array]]]) -> None:
         """ Set weights for net_state and net_output """
         pass
 
+    # -----------------------------------------------------------------------------------------------------------------
     @abstractmethod
     def Loop(self, g: GraphObject, *, training: bool = False) -> tuple[int, tf.Tensor, tf.Tensor]:
         """ Process a single GraphObject element g, returning iteration, states and output """
+        pass
+
+    # -----------------------------------------------------------------------------------------------------------------
+    @abstractmethod
+    def __call__(self, g: GraphObject):
+        """ Return the mdoel output in test mode (training == False) for graph g of type GraphObject """
         pass
 
     ## HISTORY METHOD #################################################################################################
@@ -341,7 +353,7 @@ class BaseGNN(ABC):
             mean: bool = True, verbose: int = 3, pos_label=0) -> dict[str, list[float]]:
         """ LEAVE K OUT CROSS VALIDATION PROCEDURE
 
-        :param dataset: (list) of GraphObject OR (list) of lists of GraphObject on which <gnn> has to be valuated
+        :param dataset: a single GraphObjetc OR a list of GraphObject OR list of lists of GraphObject on which <gnn> has to be valuated
                         > NOTE: for graph-based problem, if type(dataset) == list of GraphObject,
                         s.t. len(dataset) == number of graphs in the dataset, then i-th class will may be have different frequencies among batches
                         [so the i-th class may me more present in a batch and absent in another batch].
@@ -360,14 +372,14 @@ class BaseGNN(ABC):
         :param max_fails: (int) specifies the max number of failures before early sopping.
         :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss.
         :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, else as the mean.
-        :param verbose: (int) 0: silent mode; 1:print epochs/batches; 2: print history; 3: history + epochs/batches.
+        :param verbose: (int) 0: silent mode; 1: print history; 2: print epochs/batches, 3: history + epochs/batches. Default 3.
         :param pos_label: (int) for classification problems, identify the positive class.
         :return: a dict containing all the considered metrics in <gnn>.history.
         """
         from GNN.GNN_utils import normalize_graphs, getbatches
         from numpy import random, arange, array_split
         from GNN.GNN import GNNnodeBased, GNNedgeBased, GNNgraphBased
-
+        from GNN.LGNN.LGNN import LGNN
         # Shuffling procedure: set or not seed parameter, then shuffle classes and/or elements in each class/dataset
         if seed: random.seed(seed)
         # Dataset creation, based on param <dataset>
@@ -386,8 +398,9 @@ class BaseGNN(ABC):
                 g.set_mask = np.zeros(len(g.set_mask), dtype=bool)
                 g.set_mask[maskidx] = True
 
-        elif isinstance(dataset, list) and all(isinstance(i, GraphObject) for i in dataset):
-            dataset = [dataset]
+        elif isinstance(dataset, list):
+            if all(isinstance(i, GraphObject) for i in dataset): dataset = [dataset]
+            elif all(isinstance(i, list) for i in dataset) and all(isinstance(j, GraphObject) for i in dataset for j in i): pass
             for i in dataset: random.shuffle(i)
             random.shuffle(dataset)
 
@@ -400,10 +413,10 @@ class BaseGNN(ABC):
             for i in flattened: random.shuffle(i)
 
             # Final dataset for LKO procedure: merge graphs belonging to classes/dataset to obtain 1 GraphObject per batch
-            problem_based = {GNNnodeBased: 'n', GNNedgeBased: 'g', GNNgraphBased: 'g'}
-
-            dataset = [GraphObject.merge(i, problem_based=problem_based.get(type(self), problem_based.get(self.GNNS_TYPE)),
-                                         node_aggregation=node_aggregation) for i in flattened]
+            problems = {GNNnodeBased: 'n', GNNedgeBased: 'a', GNNgraphBased: 'g'}
+            problem_based = problems.get(type(self), None)
+            if problem_based is None: problem_based = problems.get(self.GNNS_TYPE)
+            dataset = [GraphObject.merge(i, problem_based=problem_based, node_aggregation=node_aggregation) for i in flattened]
         else:
             raise TypeError('param <dataset> must be a GraphObject, a list of GraphObjects or a list of lists of Graphobjects')
 
