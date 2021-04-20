@@ -29,10 +29,17 @@ In particular, set `use_MUTAG=True` to get the real-world dataset MUTAG for solv
 Note that a single layered LGNN behaves exaclty like a GNN, as it is composed of a single GNN.
 
 ### Single model training and testing
-LGNN can be trained both in parallel or 
-mode, by setting `serial_training` argument when calling `LGNN.train()`. Default value is `False`.
+LGNN can be trained in parallel, serial or residual mode. 
 
-In *Parallel Mode*, GNN layers are trained simultaneously, by processing loss on the LGNN output (as the mean of the GNNs outputs), and backpropagating the error throughout the GNN layers.
+- Serial: GNNs layers are trained separately, one by one;
+
+- In *Parallel Mode*, GNN layers are trained simultaneously, by processing loss on the losses of all GNNs layers, s.t. `loss = sum( loss_function(targets, oi) for oi in gnns_layers_output)` and backpropagating the error throughout the GNN layers;
+
+- In *Residual Mode*, GNN layers are trained simultaneously, by processing loss on the LGNN output, s.t. s.t. `loss = loss_function(targets, sum(oi for oi in gnns_layers_output))` and backpropagating the error throughout the GNN layers.e output of all GNNs layers.
+
+Training mode can be set as argument when calling `LGNN.train()`. Default value is `parallel`.
+
+
 
 In *Serial Mode*, each GNN layer is trained as a standalone GNN model, therefore becoming an *expert* which solves the considered problem using the original data and the experience obtained from the previous GNN layer, so as to "correct" the errors made by the previous network, rather than solving the whole problem.
 
