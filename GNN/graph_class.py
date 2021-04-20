@@ -19,36 +19,43 @@ class GraphObject:
                  node_aggregation: str = "average"):
         """ CONSTRUCTOR METHOD
 
-        :param arcs: Ordered Arcs Matrix where arcs[i] = [ID Node From | ID NodeTo | Arc Label]
-        :param nodes: Ordered Nodes Matrix where nodes[i] = [ID Node | Node Label]
-        :param targets: Targets Array with shape (Num of targeted example [nodes or arcs], dim_target example)
-        :param problem_based: (str) define the type of problem: 'a' arcs-based, 'g' graph-based, 'n' node-based
-        :param set_mask: Array of {0,1} to define arcs/nodes belonging to a set, when dataset == single GraphObject
-        :param output_mask: Array of {0,1} to define the sub-set of arcs/nodes whose output is needed
-        :param NodeGraph: Matrix (nodes.shape[0],{Num graphs|1}) s.t. node-based problem -> graph-based one
-        :param ArcNode: Matrix of shape (num_of_arcs, num_of_nodes) s.t. A[i,j]=value if arc[i,2]==node[j]
-        :param node_aggregation:Define how graph-based problem are faced. Possible values in ['average', 'sum', 'normalized']
+        :param arcs: Ordered Arcs Matrix where arcs[i] = [ID Node From | ID NodeTo | Arc Label].
+        :param nodes: Ordered Nodes Matrix where nodes[i] = [Node Label].
+        :param targets: Targets Array with shape (Num of targeted example [nodes or arcs], dim_target example).
+        :param problem_based: (str) define the problem on which graph is used: 'a' arcs-based, 'g' graph-based, 'n' node-based.
+        :param set_mask: Array of {0,1} to define arcs/nodes belonging to a set, when dataset == single GraphObject.
+        :param output_mask: Array of {0,1} to define the sub-set of arcs/nodes whose target is known.
+        :param NodeGraph: Matrix (nodes.shape[0],{Num graphs or 1}) used only when problem_based=='g'.
+        :param ArcNode: Matrix of shape (num_of_arcs, num_of_nodes) s.t. A[i,j]=value if arc[i,2]==node[j].
+        :param node_aggregation: Define how graph-based problem are faced. Possible values in ['average', 'sum', 'normalized'].
         """
         # store arcs, nodes, targets
         self.arcs = arcs.astype('float32')
         self.nodes = nodes.astype('float32')
         self.targets = targets.astype('float32')
+        
         # store dimensions
-        self.DIM_NODE_LABEL = nodes.shape[1]  # first column contains node indices (output_mask is not here!)
+        self.DIM_NODE_LABEL = nodes.shape[1]
         self.DIM_ARC_LABEL = (arcs.shape[1] - 2)  # first two columns contain nodes indices
         self.DIM_TARGET = targets.shape[1]
+        
         # setting the problem type: node, arcs or graph based + check existence of passed parameters in keys
         lenMask = {'n': nodes.shape[0], 'a': arcs.shape[0], 'g': nodes.shape[0]}
+        
         # build set_mask, for a dataset composed of only a single graph: its nodes have to be divided in Tr, Va and Te
         self.set_mask = np.ones(lenMask[problem_based], dtype=bool) if set_mask is None else set_mask.astype(bool)
         # build output_mask
         self.output_mask = np.ones(len(self.set_mask), dtype=bool) if output_mask is None else output_mask.astype(bool)
+        
         # check lengths: output_mask must be as long as set_mask
         if len(self.set_mask) != len(self.output_mask): raise ValueError('Error - len(<set_mask>) != len(<output_mask>)')
+            
         # build Adjancency Matrix
         self.Adjacency = self.buildAdiacencyMatrix()
+        
         # build ArcNode tensor or acquire it from input
         self.ArcNode = self.buildArcNode(node_aggregation=node_aggregation) if ArcNode is None else ArcNode.astype('float32')
+        
         # build node_graph conversion matrix
         self.NodeGraph = self.buildNodeGraph(problem_based) if NodeGraph is None else NodeGraph.astype('float32')
 
@@ -56,15 +63,14 @@ class GraphObject:
     def copy(self):
         """ COPY METHOD
 
-        :return: a Deep Copy of the Graph Object instance.
+        :return: a Deep Copy of the GraphObject instance.
         """
-
         return GraphObject(arcs=self.getArcs(), nodes=self.getNodes(), targets=self.getTargets(), set_mask=self.getSetMask(),
                            output_mask=self.getOutputMask(), NodeGraph=self.getNodeGraph(), ArcNode=self.getArcNode())
 
     # -----------------------------------------------------------------------------------------------------------------
     def buildAdiacencyMatrix(self):
-        """ Build Adjacency Matrix ADJ of the graph, s.t.  ADJ[i,j]=1 if edge (i,j) exists """
+        """ Build Adjacency Matrix ADJ of the graph, s.t. ADJ[i,j]=1 if edge (i,j) exists in graph edges set. """
         from scipy.sparse import coo_matrix
         values = np.ones(self.arcs.shape[0], dtype='float32')
         indices = self.arcs[:, :2].astype(int)
@@ -72,44 +78,51 @@ class GraphObject:
 
     # -----------------------------------------------------------------------------------------------------------------
     def buildArcNode(self, node_aggregation: str):
-        """ Build ArcNode Matrix A of shape (number_of_arcs, number_of_nodes) where A[i,j]=value if arc[i,2]==node[j]
+        """ Build ArcNode Matrix A of shape (number_of_arcs, number_of_nodes) where A[i,j]=value if arc[i,2]==node[j].
 
-        Compute the matmul(m:=message,A) to get the incoming message on each node
+        Compute the matmul(m:=message,A) to get the incoming message on each node.
 
         :param node_aggregation: (str) It defines the aggregation mode for the incoming message of a node:
-            > 'average': elem(A)={0-1} -> matmul(m,A) gives the average of incoming messages, s.t. sum(A[:,i])=1
-            > 'normalized': elem(A)={0-1} -> matmul(m,A) gives the normalized message wrt the total number of g.nodes
-            > 'sum': elem(A)={0,1} -> matmul(m,A) gives the total sum of incoming messages
-        :return: sparse ArcNode Matrix, for memory efficiency
-        :raise: Error if <node_aggregation> is not in ['average','sum','normalized']
+            > 'average': elem(A)={0-1} -> matmul(m,A) gives the average of incoming messages, s.t. sum(A[:,i])=1;
+            > 'normalized': elem(A)={0-1} -> matmul(m,A) gives the normalized message wrt the total number of g.nodes;
+            > 'sum': elem(A)={0,1} -> matmul(m,A) gives the total sum of incoming messages.
+        :return: sparse ArcNode Matrix, for memory efficiency.
+        :raise: Error if <node_aggregation> is not in ['average','sum','normalized'].
         """
         if node_aggregation not in ['average', 'normalized', 'sum']: raise ValueError("ERROR: Unknown aggregation mode")
         col = self.arcs[:, 1]  # column indices of A are located in the second column of the arcs tensor
         row = np.arange(0, len(col))  # arc id (from 0 to number of arcs)
-        values_vector = np.ones(len(col))
         val, col_index, destination_node_counts = np.unique(col, return_inverse=True, return_counts=True)
+        
+        # sum node aggregation - incoming message as sum of neighbors states and labels
+        values_vector = np.ones(len(col))
+        
+        # average node aggregation - incoming message as average of neighbors states and labels
         if node_aggregation == "average":
             values_vector = values_vector / destination_node_counts[col_index]
-        elif node_aggregation == "normalized":
+        
+        # normalized node aggregation - incoming message as sum of neighbors states and labels divided by the number of nodes in the graph
+        if node_aggregation == "normalized":
             values_vector = values_vector * float(1 / len(col))
+            
         # isolated nodes correction: if nodes[i] is isolated, then ArcNode[:,i]=0, to maintain nodes ordering
         from scipy.sparse import coo_matrix
         return coo_matrix((values_vector, (row, self.arcs[:, 1])), shape=(len(self.arcs), len(self.nodes)), dtype='float32')
 
     # -----------------------------------------------------------------------------------------------------------------
     def setArcNode(self, node_aggregation: str):
+        """ Set ArcNode values for the specified node_aggregation argument """
         self.ArcNode = self.buildArcNode(node_aggregation=node_aggregation)
 
     # -----------------------------------------------------------------------------------------------------------------
     def buildNodeGraph(self, problem_based: str):
         """ Build Node-Graph Aggregation Matrix, to transform a node-based problem in a graph-based one.
-        It has dimensions (nodes.shape[0], 1) for a single graph, or (nodes.shape[0], Num graphs) for a graph containing
-        2+ graphs, built by merging the single graphs into a bigger one, such that after the node-graph aggregation
-        process gnn can compute (Num graphs, targets.shape[1]) as output.
-        It's normalized wrt the number of nodes whose output is computed, i.e. the number of ones in output_mask
-        :return: node-graph matrix
+        nodegraph != None only if problem_based == 'g': It has dimensions (nodes.shape[0], 1) for a single graph, 
+        or (nodes.shape[0], Num graphs) for a graph containing 2+ graphs, built by merging the single graphs into a bigger one,
+        such that after the node-graph aggregation process gnn can compute (Num graphs, targets.shape[1]) as output.
+        It's normalized wrt the number of nodes whose output is computed, i.e. the number of ones in output_mask.
+        :return: nodegraph matrix if :param problem_based: is 'g' else None, as nodegraph is used in graph-based problems.
         """
-        # nodes_output_coefficient = np.count_nonzero(self.output_mask)
         nodegraph = None
         if problem_based == 'g':
             nodes_output_coefficient = self.nodes.shape[0]
@@ -118,17 +131,17 @@ class GraphObject:
 
     # -----------------------------------------------------------------------------------------------------------------
     def save(self, graph_folder_path: str) -> None:
-        """ save graph in folder
+        """ save graph in folder. All attributes are saved in numpy .npy files.
 
-        :param graph_folder_path: (str) folder path for saving the graph
+        :param graph_folder_path: (str) folder path in which graph is saved.
         """
         GraphObject.save_graph(graph_folder_path, self)
 
     # -----------------------------------------------------------------------------------------------------------------
     def savetxt(self, graph_folder_path: str, format: str = '%.10g') -> None:
-        """ save graph in folder
+        """ save graph in folder. All attributes are saved in textual .txt files.
 
-        :param graph_folder_path: (str) folder path for saving the graph
+        :param graph_folder_path: (str) folder path in which graph is saved.
         """
         GraphObject.save_txt(graph_folder_path, self, format)
 
@@ -161,16 +174,20 @@ class GraphObject:
     ## CLASS METHODs ##################################################################################################
     @classmethod
     def save_graph(self, graph_folder_path: str, g):
-        """ Save a graph to a directory, creating txt files referring to nodes, arcs, targets and possibly output_mask
+        """ Save a graph to a directory, creating txt files referring to all attributes of graph g
+        Note that graph_folder_path will contain ONLY a single graph g. If folder is not empty, it is removed and re-made
+        Remind that dataset folder contains one folder for each graph.
 
-        :param graph_folder_path: new directory for saving the graph
-        :param g: graph of type GraphObject to be saved
+        :param graph_folder_path: new directory for saving the graph. 
+        :param g: graph of type GraphObject to be saved.
         """
         import shutil
+        
         # check folder
         if graph_folder_path[-1] != '/': graph_folder_path += '/'
         if os.path.exists(graph_folder_path): shutil.rmtree(graph_folder_path)
         os.makedirs(graph_folder_path)
+        
         # save everything
         np.save(graph_folder_path + "arcs.npy", g.arcs)
         np.save(graph_folder_path + "nodes.npy", g.nodes)
@@ -182,17 +199,21 @@ class GraphObject:
     # -----------------------------------------------------------------------------------------------------------------
     @classmethod
     def save_txt(self, graph_folder_path: str, g, format: str = '%.10g'):
-        """ Save a graph to a directory, creating txt files referring to nodes, arcs, targets and possibly output_mask
+        """ Save a graph to a directory, creating txt files referring to all attributes of graph g
+        Note that graph_folder_path will contain ONLY a single graph g. If folder is not empty, it is removed and re-made.
+        Remind that dataset folder contains one folder for each graph.
 
-        :param graph_folder_path: new directory for saving the graph
-        :param g: graph of type GraphObject to be saved
-        :param format: param to be passed to np.savetxt
+        :param graph_folder_path: new directory for saving the graph.
+        :param g: graph of type GraphObject to be saved.
+        :param format: param passed to np.savetxt().
         """
         import shutil
+        
         # check folder
         if graph_folder_path[-1] != '/': graph_folder_path += '/'
         if os.path.exists(graph_folder_path): shutil.rmtree(graph_folder_path)
         os.makedirs(graph_folder_path)
+        
         # save everything
         np.savetxt(graph_folder_path + "arcs.txt", g.arcs, fmt=format, delimiter=',')
         np.savetxt(graph_folder_path + "nodes.txt", g.nodes, fmt=format, delimiter=',')
@@ -212,13 +233,14 @@ class GraphObject:
         :param node_aggregation: node aggregation mode: 'average','sum','normalized'. Go to BuildArcNode for details
         :param problem_based: (str) : 'n'-nodeBased; 'a'-arcBased; 'g'-graphBased
             > NOTE For graph_based problems, file 'NodeGraph.npy' must be present in folder
-        :return: GraphObject described by the files contained inside <graph_folder_path> folder
-        """
+        :return: GraphObject described by files in <graph_folder_path> folder
+        """      
         # load all the files inside <graph_folder_path> folder
         if graph_folder_path[-1] != '/': graph_folder_path += '/'
-        files = os.listdir(graph_folder_path)  # sorted(os.listdir(graph_folder_path))
+        files = os.listdir(graph_folder_path)
         keys = [i.rsplit('.')[0] for i in files] + ['problem_based', 'node_aggregation']
         vals = [np.load(graph_folder_path + i) for i in files] + [problem_based, node_aggregation]
+        
         # create a dictionary with parameters and values to be passed to constructor and return GraphObject
         params = dict(zip(keys, vals))
         return self(**params)
@@ -233,13 +255,14 @@ class GraphObject:
         :param problem_based: (str) : 'n'-nodeBased; 'a'-arcBased; 'g'-graphBased
             > NOTE For graph_based problems, file 'NodeGraph.txt' must to be present in folder
         :param node_aggregation: node aggregation mode: 'average','sum','normalized'. Go to BuildArcNode for details
-        :return: GraphObject described by the files contained inside <graph_folder_path> folder
+        :return: GraphObject described by files in <graph_folder_path> folder
         """
         # load all the files inside <graph_folder_path> folder
         if graph_folder_path[-1] != '/': graph_folder_path += '/'
-        files = os.listdir(graph_folder_path)  # sorted(os.listdir(graph_folder_path))
+        files = os.listdir(graph_folder_path)
         keys = [i.rsplit('.')[0] for i in files] + ['problem_based', 'node_aggregation']
         vals = [np.loadtxt(graph_folder_path + i, delimiter=',', ndmin=2) for i in files] + [problem_based, node_aggregation]
+        
         # create a dictionary with parameters and values to be passed to constructor and return GraphObject
         params = dict(zip(keys, vals))
         return self(**params)
@@ -250,9 +273,9 @@ class GraphObject:
         """ Method to merge graphs: it takes in input a list of graphs and returns them as a single graph
 
         :param glist: list of GraphObjects
-            > NOTE If glist[:].problem_based=='g', NodeGraph will have dimension (Num nodes, Num graphs), else (Num nodes,1)
-        :param node_aggregation: str, node aggregation mode for new GraphObject
-        :return: a new GraphObject containing all the information (nodes, arcs, targets) in glist
+            > NOTE if problem_based=='g', new NodeGraph will have dimension (Num nodes, Num graphs) else None
+        :param node_aggregation: str, node aggregation mode for new GraphObject, go to buildArcNode for details
+        :return: a new GraphObject containing all the information (nodes, arcs, targets, etc) in glist
         """
         # check parameters
         if not (type(glist) == list and all(isinstance(x, (GraphObject, str)) for x in glist)):
@@ -260,8 +283,8 @@ class GraphObject:
 
         nodes, nodes_lens, arcs, targets, set_mask, output_mask, nodegraph_list = zip(
             *[(i.getNodes(), i.nodes.shape[0], i.getArcs(), i.getTargets(),
-               i.getSetMask(), i.getOutputMask(), i.getNodeGraph())
-              for i in glist])
+               i.getSetMask(), i.getOutputMask(), i.getNodeGraph()) for i in glist])
+        
         # get single matrices for new graph
         for i, elem in enumerate(arcs): elem[:, :2] += sum(nodes_lens[:i])
         arcs = np.concatenate(arcs, axis=0)
