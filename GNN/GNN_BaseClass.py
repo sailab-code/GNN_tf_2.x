@@ -380,43 +380,81 @@ class BaseGNN(ABC):
         from numpy import random, arange, array_split
         from GNN.GNN import GNNnodeBased, GNNedgeBased, GNNgraphBased
         from GNN.LGNN.LGNN import LGNN
+
         # Shuffling procedure: set or not seed parameter, then shuffle classes and/or elements in each class/dataset
         if seed: random.seed(seed)
-        # Dataset creation, based on param <dataset>
-        if useVa: number_of_batches += 1
 
-        # classification vs regression LKO problem: see :param dataset: for details
+        # define useful lambda function to be used in any case
+        flatten = lambda l: [item for sublist in l for item in sublist]
+
+        # define lists for LKO
+        gTRs, gTEs, gVAs = list(), list(), list()
+
+        # SINGLE GRAPH CASE: batches are obtaind by setting set_masks for training, test and validation (if any)
         if isinstance(dataset, GraphObject):
+            dataset.set_mask = np.zeros(len(dataset.set_mask), dtype=bool)
+
             mask_indicess = arange(len(dataset.set_mask))
-
             random.shuffle(mask_indicess)
-
             masks = array_split(mask_indicess, number_of_batches)
-            dataset = [dataset.copy() for _ in range(number_of_batches)]
 
-            for maskidx, g in zip(masks, dataset):
-                g.set_mask = np.zeros(len(g.set_mask), dtype=bool)
-                g.set_mask[maskidx] = True
+            for i in range(len(masks)):
+                M = masks.copy()
 
+                # test batch
+                mTe = M.pop(i)
+                gTe = dataset.copy()
+                gTe.set_mask[mTe] = True
+
+                # validation batch
+                gVa = None
+                if useVa:
+                    mVa = M.pop(-1)
+                    gVa = dataset.copy()
+                    gVa.set_mask[mVa] = True
+
+                # training batch - all the others
+                mTr = flatten(M)
+                gTr = dataset.copy()
+                gTr.set_mask[mTr] = True
+
+                # append batch graphs
+                gTRs.append(gTr)
+                gTEs.append(gTe)
+                gVAs.append(gVa)
+
+        # MULTI GRAPH CASE: dataset is a list of graphs or a list of lists of graphs. :param dataset_ for details
         elif isinstance(dataset, list):
+            # check type if dataset is a list
             if all(isinstance(i, GraphObject) for i in dataset): dataset = [dataset]
-            elif all(isinstance(i, list) for i in dataset) and all(isinstance(j, GraphObject) for i in dataset for j in i): pass
+            assert all(len(i)>number_of_batches for i in dataset)
+            assert all(isinstance(i, list) for i in dataset) and all(isinstance(j, GraphObject) for i in dataset for j in i)
+
+            # shuffle entire dataset or classes sub-dataset
             for i in dataset: random.shuffle(i)
-            random.shuffle(dataset)
 
-            dataset_batches = [getbatches(elem, node_aggregation, -1, number_of_batches, one_graph_per_batch=False) for i, elem in
-                               enumerate(dataset)]
-            flatten = lambda l: [item for sublist in l for item in sublist]
+            # get dataset batches and flatten lists to obtain a list of lists, then shuffle again to mix classes inside batches
+            dataset_batches = [getbatches(elem, node_aggregation, -1, number_of_batches, one_graph_per_batch=False) for i, elem in enumerate(dataset)]
             flattened = [flatten([i[j] for i in dataset_batches]) for j in range(number_of_batches)]
-
-            # shuffle again to mix classes inside batches, so that i-th class does not appears there at the same position
             for i in flattened: random.shuffle(i)
 
             # Final dataset for LKO procedure: merge graphs belonging to classes/dataset to obtain 1 GraphObject per batch
             problems = {GNNnodeBased: 'n', GNNedgeBased: 'a', GNNgraphBased: 'g'}
-            problem_based = problems.get(type(self), None)
-            if problem_based is None: problem_based = problems.get(self.GNNS_TYPE)
+            if type(self) == LGNN:  problem_based = problems[self.GNNS_TYPE]
+            else: problem_based = problems[type(self)]
             dataset = [GraphObject.merge(i, problem_based=problem_based, node_aggregation=node_aggregation) for i in flattened]
+
+            # split dataset in training/validation/test set
+            for i in range(len(dataset)):
+                gTr = dataset.copy()
+                gTe = gTr.pop(i)
+                gVa = gTr.pop(-1) if useVa else None
+
+                # append batch graphs
+                gTRs.append(gTr)
+                gTEs.append(gTe)
+                gVAs.append(gVa)
+
         else:
             raise TypeError('param <dataset> must be a GraphObject, a list of GraphObjects or a list of lists of Graphobjects')
 
@@ -425,20 +463,14 @@ class BaseGNN(ABC):
         if acc_classes: metrics['Acc Classes'] = list()
 
         # LKO PROCEDURE
-        len_dataset = len(dataset) - int(useVa)
-        for i in range(len_dataset):
-
-            # split dataset in training/validation/test set
-            gTr = dataset.copy()
-            gTe = gTr.pop(i)
-            gVa = gTr.pop(-1) if useVa else None
+        for i, gTr, gTe, gVa in zip(range(number_of_batches), gTRs, gTEs, gVAs):
 
             # normalization procedure
             if normalize_method: normalize_graphs(gTr, gVa, gTe, based_on=normalize_method)
 
             # gnn creation, learning and test
-            print(f'\nBATCH K-OUT {i + 1}/{len_dataset}')
-            temp = self.copy(copy_weights=False, path_writer=self.path_writer + str(i), namespace=f'Batch {i + 1}-{len(dataset)}')
+            print(f'\nBATCH K-OUT {i + 1}/{number_of_batches}')
+            temp = self.copy(copy_weights=False, path_writer=self.path_writer + str(i), namespace=f'Batch {i + 1}-{number_of_batches}')
             if type(temp) in [GNNnodeBased, GNNedgeBased, GNNgraphBased]:
                 temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)
             else:
