@@ -8,9 +8,9 @@ from tensorflow.keras.models import Sequential
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def MLP(input_dim: int, layers: list[int], activations, kernel_initializer, bias_initializer,
-        dropout_rate: Union[list[float], float, None] = None, dropout_pos: Optional[Union[list[int], int]] = None,
-        alphadropout: bool = False):
+def MLP(input_dim: int, layers: list[int], activations, kernel_initializer, bias_initializer, kernel_regularizer = None,
+        bias_regularizer=None, dropout_rate: Union[list[float], float, None] = None,
+        dropout_pos: Optional[Union[list[int], int]] = None, alphadropout: bool = False):
     """ Quick building function for MLP model. All lists must have the same length
 
     :param input_dim: (int) specify the input dimension for the model
@@ -18,29 +18,34 @@ def MLP(input_dim: int, layers: list[int], activations, kernel_initializer, bias
     :param activations: (functions or list of functions)
     :param kernel_initializer: (initializers or list of initializers) for weights initialization (NOT biases)
     :param bias_initializer: (initializers or list of initializers) for biases initialization (NOT weights)
+    :param kernel_regularizer: (regularizer or list of regularizers) for weight regularization (NOT biases)
+    :param bias_regularizer: (regularizer or list of regularizers) for biases regularization (NOT weights)
     :param dropout_rate: (float) s.t. 0 <= dropout_percs <= 1 for dropout rate
     :param dropout_pos: int or list of int describing dropout layers position
     :param alphadropout: (bool) for dropout type, if any
     :return: Sequential (MLP) model
     """
-
     # check type
+    if dropout_rate == None or dropout_pos == None: dropout_rate, dropout_pos = list(), list()
+
+    # build lists
     if type(activations) != list: activations = [activations for _ in layers]
     if type(kernel_initializer) != list: kernel_initializer = [kernel_initializer for _ in layers]
     if type(bias_initializer) != list: bias_initializer = [bias_initializer for _ in layers]
+    if type(kernel_regularizer) != list: kernel_regularizer = [kernel_regularizer for _ in layers]
+    if type(bias_regularizer) != list: bias_regularizer = [bias_regularizer for _ in layers]
     if type(dropout_pos) == int:  dropout_pos = [dropout_pos]
     if type(dropout_rate) == float: dropout_rate = [dropout_rate for _ in dropout_pos]
-    if dropout_rate == None or dropout_pos == None: dropout_rate, droout_pos = list(), list()
 
     # check lengths
-    if not (len(activations) == len(kernel_initializer) == len(bias_initializer) == len(layers)):
+    if len(set(map(len, [activations, kernel_initializer, bias_initializer, kernel_regularizer, bias_regularizer, layers])))>1:
         raise ValueError('Dense parameters must have the same length to be correctly processed')
     if len(dropout_rate) != len(dropout_pos):
         raise ValueError('Dropout parameters must have the same length to be correctly processed')
 
     # Dense layers
-    keys = ['units', 'activation', 'kernel_initializer', 'bias_initializer']
-    vals = [[layers[i], activations[i], kernel_initializer[i], bias_initializer[i]] for i in range(len(layers))]
+    keys = ['units', 'activation', 'kernel_initializer', 'bias_initializer', 'kernel_regularizer', 'bias_regularizer']
+    vals = zip(layers, activations, kernel_initializer, bias_initializer, kernel_regularizer, bias_regularizer)
     params = [dict(zip(keys, i)) for i in vals]
 
     # Dropout layers
@@ -97,7 +102,7 @@ def get_inout_dims(net_name: str, dim_node_label: int, dim_arc_label: int, dim_t
         input_shape = AL + 2 * NL + DS * (1 + (problem[1] == '1'))
         input_shape += NL * (DS == 0) * (problem[1] == '2')
         output_shape = DS if DS else NL
-        
+
     # MLP output
     elif net_name == 'output':
         input_shape = (problem[0] == 'a') * (NL + AL + DS) + NL + dim_state
