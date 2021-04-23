@@ -49,6 +49,8 @@ norm_arcs_range     : Optional[tuple[Union[int, float], Union[int, float]]] = No
 activations_net_state   : str = 'selu'
 kernel_init_net_state   : str = 'lecun_normal'
 bias_init_net_state     : str = 'lecun_normal'
+kernel_reg_net_state    : str = 'l1'
+bias_reg_net_state      : str = 'l1'
 dropout_rate_st         : float = 0.1
 dropout_pos_st          : Union[list[int], int] = 0
 hidden_units_net_state  : Optional[Union[list[int], int]] = [150, 150]
@@ -57,13 +59,15 @@ hidden_units_net_state  : Optional[Union[list[int], int]] = [150, 150]
 activations_net_output  : str = 'softmax'
 kernel_init_net_output  : str = 'glorot_normal'
 bias_init_net_output    : str = 'glorot_normal'
+kernel_reg_net_output   : str = 'l1'
+bias_reg_net_output     : str = 'l1'
 dropout_rate_out        : float = 0.1
 dropout_pos_out         : Union[list[int], int] = 0
 hidden_units_net_output : Optional[Union[list[int], int]] = [150]
 
 # GNN PARAMETERS
-dim_state       : int = 3
-max_iter        : int = 3
+dim_state       : int = 0
+max_iter        : int = 5
 state_threshold : float = 0.01
 
 # LGNN PARAMETERS
@@ -127,11 +131,12 @@ input_net_st, layers_net_st = zip(*[get_inout_dims(net_name='state', dim_node_la
                                                    problem=problem_type[1:], dim_state=dim_state,
                                                    hidden_units=hidden_units_net_state,
                                                    layer=i, get_state=get_state, get_output=get_output) for i in range(layers)])
-
 nets_St = [MLP(input_dim=i, layers=j,
                activations=activations_net_state,
                kernel_initializer=kernel_init_net_state,
                bias_initializer=bias_init_net_state,
+               kernel_regularizer=kernel_reg_net_state,
+               bias_regularizer=bias_reg_net_state,
                dropout_rate=dropout_rate_st,
                dropout_pos=dropout_pos_st) for i, j in zip(input_net_st, layers_net_st)]
 
@@ -145,6 +150,8 @@ nets_Out = [MLP(input_dim=i, layers=j,
                 activations=activations_net_output,
                 kernel_initializer=kernel_init_net_output,
                 bias_initializer=bias_init_net_output,
+                kernel_regularizer=kernel_reg_net_output,
+                bias_regularizer=bias_reg_net_output,
                 dropout_rate=dropout_rate_out,
                 dropout_pos=dropout_pos_out) for i, j in zip(input_net_out, layers_net_out)]
 
