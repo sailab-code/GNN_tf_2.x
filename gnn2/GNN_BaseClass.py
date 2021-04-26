@@ -433,15 +433,17 @@ class BaseGNN(ABC):
             # shuffle entire dataset or classes sub-dataset
             for i in dataset: random.shuffle(i)
 
+            # get problem_based param
+            problems = {GNNnodeBased: 'n', GNNedgeBased: 'a', GNNgraphBased: 'g'}
+            if type(self) == LGNN:  problem_based = problems[self.GNNS_TYPE]
+            else: problem_based = problems[type(self)]
+
             # get dataset batches and flatten lists to obtain a list of lists, then shuffle again to mix classes inside batches
-            dataset_batches = [getbatches(elem, node_aggregation, -1, number_of_batches, one_graph_per_batch=False) for i, elem in enumerate(dataset)]
+            dataset_batches = [getbatches(elem, problem_based, node_aggregation, -1, number_of_batches, False) for i, elem in enumerate(dataset)]
             flattened = [flatten([i[j] for i in dataset_batches]) for j in range(number_of_batches)]
             for i in flattened: random.shuffle(i)
 
             # Final dataset for LKO procedure: merge graphs belonging to classes/dataset to obtain 1 GraphObject per batch
-            problems = {GNNnodeBased: 'n', GNNedgeBased: 'a', GNNgraphBased: 'g'}
-            if type(self) == LGNN:  problem_based = problems[self.GNNS_TYPE]
-            else: problem_based = problems[type(self)]
             dataset = [GraphObject.merge(i, problem_based=problem_based, node_aggregation=node_aggregation) for i in flattened]
 
             # split dataset in training/validation/test set
@@ -482,7 +484,7 @@ class BaseGNN(ABC):
             for m in res: metrics[m].append(res[m])
 
             # verbose option
-            if verbose > 1: print(DataFrame(res, index=['res']).transpose())
+            if verbose > 1: print(f'\nRESULTS BATCH {i + 1}/{number_of_batches}\n', DataFrame(res, index=['res']).transpose())
         return metrics
 
     ## STATIC METHODs #################################################################################################
