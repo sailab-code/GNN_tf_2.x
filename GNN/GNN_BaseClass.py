@@ -517,8 +517,9 @@ class BaseGNN(ABC):
 
         with writer.as_default():
             for i in metrics:
-                with tf.name_scope(namescopes[i]):
-                    tf.summary.scalar(names[i], metrics[i], step=epoch, description=names[i])
+                with tf.name_scope(namescopes.get(i, 'Other Scores')):
+                    name = names.get(i, i)
+                    tf.summary.scalar(name, metrics[i], step=epoch, description=name)
 
     # -----------------------------------------------------------------------------------------------------------------
     @staticmethod
