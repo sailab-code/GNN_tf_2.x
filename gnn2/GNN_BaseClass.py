@@ -462,23 +462,27 @@ class BaseGNN(ABC):
         metrics = {i: list() for i in list(self.extra_metrics) + ['It', 'Loss']}
         if acc_classes: metrics['Acc Classes'] = list()
 
+        # If model is LGNN, integrate training_mode in training procedure as kwargs dict
+        kwargs = dict()
+        if type(self) == LGNN: kwargs['training_mode'] = training_mode
+
         # LKO PROCEDURE
         for i, gTr, gTe, gVa in zip(range(number_of_batches), gTRs, gTEs, gVAs):
 
             # normalization procedure
             if normalize_method: normalize_graphs(gTr, gVa, gTe, based_on=normalize_method)
 
-            # gnn creation, learning and test
+            # model creation, learning and test
             print(f'\nBATCH K-OUT {i + 1}/{number_of_batches}')
             temp = self.copy(copy_weights=False, path_writer=self.path_writer + str(i), namespace=f'Batch {i + 1}-{number_of_batches}')
-            if type(temp) in [GNNnodeBased, GNNedgeBased, GNNgraphBased]:
-                temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)
-            else:
-                temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose, training_mode=training_mode)
-            M = temp.test(gTe, acc_classes=acc_classes, pos_label=pos_label)
+            temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose, **kwargs)
+            res = temp.test(gTe, acc_classes=acc_classes, pos_label=pos_label)
 
             # evaluate metrics
-            for m in M: metrics[m].append(M[m])
+            for m in res: metrics[m].append(res[m])
+
+            # verbose option
+            if verbose > 1: print(DataFrame(res, index=['res']).transpose())
         return metrics
 
     ## STATIC METHODs #################################################################################################
