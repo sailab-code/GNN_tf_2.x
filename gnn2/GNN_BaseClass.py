@@ -173,7 +173,7 @@ class BaseGNN(ABC):
         y_pred = tf.argmax(y_score, axis=1) if self.addressed_problem == 'c' else y_score
 
         # evaluate metrics
-        metr = {k: float(self.extra_metrics[k](y_true, y_pred, **self.mt_args.get(k, dict()))) for k in self.extra_metrics}
+        metr = {k: float(tf.reduce_mean(self.extra_metrics[k](y_true, y_pred, **self.mt_args.get(k, dict())))) for k in self.extra_metrics}
         metr['It'] = int(tf.reduce_mean(iters))
         metr['Loss'] = float(tf.reduce_mean(loss))
         return metr, metr['Loss'], y_true, y_pred, targets, y_score
@@ -523,8 +523,8 @@ class BaseGNN(ABC):
 
         with writer.as_default():
             for i in metrics:
+                name = names.get(i, i)
                 with tf.name_scope(namescopes.get(i, 'Other Scores')):
-                    name = names.get(i, i)
                     tf.summary.scalar(name, metrics[i], step=epoch, description=name)
 
     # -----------------------------------------------------------------------------------------------------------------
