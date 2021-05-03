@@ -67,7 +67,7 @@ To perform models training and testing, run:
     for i in res:  
         print('{}: \t{:.4g}'.format(i, res[i]))
 
-***NOTE** uncomment lgnn lines to train and test lgnn model*
+***NOTE** uncomment lgnn lines to train and test lgnn model in parallel mode. Set 'training_mode' argument to change learning behaviour*
 
 
 ### K-fold cross validation
@@ -82,9 +82,10 @@ To perform a 10-fold cross validation on gnn, simply run:
     lko_res = gnn.LKO(graphs, 10, epochs=epochs)
     
     
-    # LGNN LKO: as mentioned, arg serial_training affects LGNN learning process
+    # LGNN LKO: as mentioned, arg training_mode affects LGNN learning process
     # lko_res = lgnn.LKO(graphs, 10, epochs=epochs)
-    # lko_res = lgnn.LKO(graphs, 10, epochs=epochs, serial_training=True)
+    # lko_res = lgnn.LKO(graphs, 10, epochs=epochs, training_mode='serial')
+    # lko_res = lgnn.LKO(graphs, 10, epochs=epochs, training_mode='residual')
     
 
     # print test result
