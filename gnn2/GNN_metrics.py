@@ -141,7 +141,7 @@ def PRISOFS(targs, y_score, savedir='', pos_label=0):
     precision, recall, average_precision_score = dict(), dict(), dict()
     for i in range(targs.shape[1]):
         precision[i], recall[i], _ = mt.precision_recall_curve(targs[:, i], y_score[:, i], pos_label=pos_label)
-        average_precision_score[i] = mt.average_precision_score(targs[:, i], y_score[:, i], avg=None, pos_label=pos_label)
+        average_precision_score[i] = mt.average_precision_score(targs[:, i], y_score[:, i], pos_label=pos_label)
     plot_prisofs(recall, precision, average_precision_score, savedir)
 
 
