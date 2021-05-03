@@ -1,9 +1,7 @@
 # coding=utf-8
 import numpy as np
-from tensorflow.keras.backend import flatten
 from sklearn import metrics as mt
-
-
+from tensorflow.keras.backend import flatten
 
 
 #######################################################################################################################
@@ -16,74 +14,15 @@ from sklearn import metrics as mt
 # y_true  = argmax(targets, axis=1)
 # y_pred  = argmax(output,  axis=1)
 
-# ---------------------------------------------------------------------------------------------------------------------
-def accuracy_score(y_true, y_pred, norm=True):
-    return mt.accuracy_score(y_true=y_true, y_pred=y_pred, normalize=norm)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def auc(fpr, tpr):
-    return mt.auc(fpr, tpr)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def balanced_accuracy_score(y_true, y_pred):
-    return mt.balanced_accuracy_score(y_true=y_true, y_pred=y_pred)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def cohen_kappa_score(y_true, y_pred):
-    return mt.cohen_kappa_score(y1=y_true, y2=y_pred)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def confusion_matrix(y_true, y_pred):
-    return mt.confusion_matrix(y_true=y_true, y_pred=y_pred)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def fbscore(y_true, y_pred, b=1, avg='binary', pos_label=0):
-    return mt.fbeta_score(y_true=y_true, y_pred=y_pred, beta=b, average=avg, zero_division=0, pos_label=pos_label)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def jaccard_score(y_true, y_pred, avg='binary', pos_label=0):
-    return mt.jaccard_score(y_true=y_true, y_pred=y_pred, average=avg, pos_label=pos_label)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def precision_recall_curve(y_test_col, y_score_col, pos_label=0):
-    return mt.precision_recall_curve(y_test_col, y_score_col, pos_label=pos_label)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def recall_score(y_true, y_pred, avg='binary', pos_label=0):
-    return mt.recall_score(y_true=y_true, y_pred=y_pred, average=avg, zero_division=0, pos_label=pos_label)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def roc_curve(y_test_col, y_score_col,pos_label=0):
-    return mt.roc_curve(y_test_col, y_score_col, pos_label=pos_label)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def precision_score(y_test, y_pred, avg='binary', pos_label=0):
-    return mt.precision_score(y_test, y_pred, average=avg, zero_division=0, pos_label=pos_label)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def avg_precision_score(y_test, y_score, avg='binary', pos_label=0):
-    return mt.average_precision_score(y_true=y_test, y_score=y_score, average=avg, pos_label=pos_label)
-
 
 # ---------------------------------------------------------------------------------------------------------------------
 def TPR(y_true, y_pred):
-    return recall_score(y_true=y_true, y_pred=y_pred)
+    return mt.recall_score(y_true=y_true, y_pred=y_pred)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 def TNR(y_true, y_pred):
-    return 2 * balanced_accuracy_score(y_true=y_true, y_pred=y_pred) - recall_score(y_true=y_true, y_pred=y_pred)
+    return 2 * mt.balanced_accuracy_score(y_true=y_true, y_pred=y_pred) - mt.recall_score(y_true=y_true, y_pred=y_pred)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -98,7 +37,7 @@ def FNR(y_true, y_pred):
 
 # ---------------------------------------------------------------------------------------------------------------------
 def accuracy_per_class(y_true, y_pred):
-    mat = confusion_matrix(y_true=y_true, y_pred=y_pred)
+    mat = mt.confusion_matrix(y_true=y_true, y_pred=y_pred)
     return np.diag(mat) / np.sum(mat, axis=1)
 
 
@@ -168,8 +107,8 @@ def ROC(y_test, y_score, savedir='', macro_and_micro: bool = False, pos_label=0)
     n_classes = y_test.shape[1]
     fpr, tpr, roc_auc = dict(), dict(), dict()
     for i in range(n_classes):
-        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i], pos_label=pos_label)
-        roc_auc[i] = auc(fpr[i], tpr[i])
+        fpr[i], tpr[i], _ = mt.roc_curve(y_test[:, i], y_score[:, i], pos_label=pos_label)
+        roc_auc[i] = mt.auc(fpr[i], tpr[i])
 
     if macro_and_micro == True:
         # flatten the matrices to obtain a single array
@@ -177,8 +116,8 @@ def ROC(y_test, y_score, savedir='', macro_and_micro: bool = False, pos_label=0)
         y_score = flatten(y_score)
 
         # Compute micro-average ROC curve and ROC area
-        fpr["micro"], tpr["micro"], _ = roc_curve(y_test, y_score, pos_label=pos_label)
-        roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+        fpr["micro"], tpr["micro"], _ = mt.roc_curve(y_test, y_score, pos_label=pos_label)
+        roc_auc["micro"] = mt.auc(fpr["micro"], tpr["micro"])
 
         # First aggregate all false positive rates
         all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
@@ -191,7 +130,7 @@ def ROC(y_test, y_score, savedir='', macro_and_micro: bool = False, pos_label=0)
         mean_tpr /= n_classes
         fpr["macro"] = all_fpr
         tpr["macro"] = mean_tpr
-        roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
+        roc_auc["macro"] = mt.auc(fpr["macro"], tpr["macro"])
 
     plot_roc(fpr, tpr, roc_auc, savedir)
 
@@ -201,12 +140,12 @@ def PRISOFS(targs, y_score, savedir='', pos_label=0):
     """ Precision, Recall and ISO FScore curve: process and plot/save """
     precision, recall, average_precision_score = dict(), dict(), dict()
     for i in range(targs.shape[1]):
-        precision[i], recall[i], _ = precision_recall_curve(targs[:, i], y_score[:, i], pos_label=pos_label)
-        average_precision_score[i] = avg_precision_score(targs[:, i], y_score[:, i], avg=None, pos_label=pos_label)
+        precision[i], recall[i], _ = mt.precision_recall_curve(targs[:, i], y_score[:, i], pos_label=pos_label)
+        average_precision_score[i] = mt.average_precision_score(targs[:, i], y_score[:, i], avg=None, pos_label=pos_label)
     plot_prisofs(recall, precision, average_precision_score, savedir)
 
 
 ######
-Metrics = {'Acc': accuracy_score, 'Bacc': balanced_accuracy_score, 'Js': jaccard_score,
-           'Ck': cohen_kappa_score, 'Prec': precision_score, 'Rec': recall_score,
-           'Fs': fbscore, 'Tpr': TPR, 'Tnr': TNR, 'Fpr': FPR, 'Fnr': FNR}
+Metrics = {'Acc': mt.accuracy_score, 'Bacc': mt.balanced_accuracy_score, 'Js': mt.jaccard_score,
+           'Ck': mt.cohen_kappa_score, 'Prec': mt.precision_score, 'Rec': mt.recall_score,
+           'Fs': mt.f1_score, 'Tpr': TPR, 'Tnr': TNR, 'Fpr': FPR, 'Fnr': FNR}

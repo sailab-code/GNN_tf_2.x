@@ -140,6 +140,13 @@ class GNNnodeBased(BaseGNN):
                     path_writer=path_writer, namespace=namespace, **config)
 
     ## GETTERS AND SETTERS METHODs ####################################################################################
+    def get_dense_layers(self) -> list[tf.keras.layers.Layer]:
+        """ Get dense layer for the application of regularizers in training time """
+        netSt_dense_layers = [i for i in self.net_state.layers if isinstance(i,tf.keras.layers.Dense)]
+        netOut_dense_layers = [i for i in self.net_output.layers if isinstance(i, tf.keras.layers.Dense)]
+        return netSt_dense_layers + netOut_dense_layers
+
+
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:
         """ Get tensor weights for net_state and net_output """
         return [self.net_state.trainable_variables], [self.net_output.trainable_variables]
@@ -243,7 +250,7 @@ class GNNnodeBased(BaseGNN):
 
         # initialize all the useful variables for convergence loop
         if self.state_vect_dim > 0:
-            state = tf.random.normal((nodes.shape[0], self.state_vect_dim), dtype=tf.float32)
+            state = tf.random.normal((nodes.shape[0], self.state_vect_dim), stddev=0.1, dtype=tf.float32)
         else:
             state = tf.constant(nodes, dtype=tf.float32)
         state_old = tf.ones_like(state, dtype=tf.float32)
