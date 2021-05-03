@@ -33,9 +33,9 @@ LGNN can be trained in parallel, serial or residual mode.
 
 - *Serial Mode*: GNNs layers are trained separately, one by one;
 
-- *Parallel Mode*: GNN layers are trained simultaneously, by processing loss on the losses of all GNNs layers, s.t. `loss = sum( loss_function(targets, oi) for oi in gnns_layers_output)` and backpropagating the error throughout the GNN layers;
+- *Parallel Mode*: GNN layers are trained simultaneously, by processing loss on the output of each GNNs layers, e.g. `loss = sum( loss_function(targets, oi) for oi in gnns_layers_output)` and backpropagating the error throughout the GNN layers;
 
-- *Residual Mode*: GNN layers are trained simultaneously, by processing loss on the LGNN output, s.t. s.t. `loss = loss_function(targets, sum(oi for oi in gnns_layers_output))` and backpropagating the error throughout the GNN layers.e output of all GNNs layers.
+- *Residual Mode*: GNN layers are trained simultaneously, by processing loss on the sum of the outputs of all GNNs layers, e.g. `loss = loss_function(targets, sum(oi for oi in gnns_layers_output))` and backpropagating the error throughout the GNN layers.
 
 Training mode can be set as argument when calling `LGNN.train()`. Default value is `parallel`.
 
