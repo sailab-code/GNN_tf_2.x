@@ -228,7 +228,7 @@ class BaseGNN(ABC):
             return valid_loss, 0, wst, wout
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        def apply_regularizer():
+        def regularizer_terms():
             extra_loss = 0
             for layer in self.get_dense_layers():
                 if layer.kernel_regularizer is not None: extra_loss += layer.kernel_regularizer(layer.kernel)
@@ -240,7 +240,7 @@ class BaseGNN(ABC):
             """ compute the gradients and apply them """
             with tf.GradientTape() as tape:
                 iter, loss, *_ = self.evaluate_single_graph(gTr, class_weights, training=True)
-                loss += apply_regularizer()
+                loss = tf.reduce_sum(loss) + regularizer_terms()
             wS, wO = self.trainable_variables()
             dwbS, dwbO = tape.gradient(loss, [wS, wO])
             # average net_state dw and db w.r.t. the number of iteration.
