@@ -15,23 +15,29 @@ Note that a single layered LGNN behaves exaclty like a GNN, as it is composed of
 
 
 ### Single model training and testing
-LGNN can be trained both in parallel or serial mode, by setting `serial_training` argument when calling `LGNN.train()`. Default value is `False`.
+LGNN can be trained in parallel, serial or residual mode. 
 
-In Parallel Mode, GNN layers are trained simultaneously, by processing loss on the LGNN output (i.e. the final GNN layer output), and backpropagating the error throughout the GNN layers.
+- *Serial Mode*: GNNs layers are trained separately, one by one;
 
-In Serial Mode, each GNN layer is trained as a standalone GNN model, therefore becoming an *expert* which solves the considered problem using the original data and the experience obtained from the previous GNN layer, so as to "correct" the errors made by the previous network, rather than solving the whole problem.
- 
+- *Parallel Mode*: GNN layers are trained simultaneously, by processing loss on the output of each GNNs layers, e.g. `loss = sum( loss_function(targets, oi) for oi in gnns_layers_output)` and backpropagating the error throughout the GNN layers;
+
+- *Residual Mode*: GNN layers are trained simultaneously, by processing loss on the sum of the outputs of all GNNs layers, e.g. `loss = loss_function(targets, sum(oi for oi in gnns_layers_output))` and backpropagating the error throughout the GNN layers.
+
+Training mode can be set as argument when calling `LGNN.train()`. Default value is `parallel`.
+
+
+In *Serial Mode*, each GNN layer is trained as a standalone GNN model, therefore becoming an *expert* which solves the considered problem using the original data and the experience obtained from the previous GNN layer, so as to "correct" the errors made by the previous network, rather than solving the whole problem.
+
 To perform both lgnn training and testing, run:
 
     from starter import lgnn, gTr, gTe, gVa
     
     epochs = 200
     
-    # training in parallel mode
+    # As mentioned, arg training_mode affects LGNN training process. 
+    # lgnn.train(gTr, epochs, gVa, training_mode='serial')
+    # lgnn.train(gTr, epochs, gVa, training_mode='residual')
     lgnn.train(gTr, epochs, gVa)
-    
-    # training in serial mode
-    # lgnn.train(gTr, epochs, gVa, serial_training=True)
     
     # test the lgnn
     res = lgnn.test(gTe)
@@ -48,8 +54,9 @@ To perform a 10-fold cross validation on lgnn, run:
     
     epochs = 200
     
-    # LKO: as mentioned, arg serial_training affects LGNN training process
-    # lko_res = lgnn.LKO(graphs, 10, epochs=epochs, serial_training=True)
+    # LKO: as mentioned, arg training_mode affects LGNN training process
+    # lko_res = lgnn.LKO(graphs, 10, epochs=epochs, training_mode='serial')
+    # lko_res = lgnn.LKO(graphs, 10, epochs=epochs, training_mode='residual')
     lko_res = lgnn.LKO(graphs, 10, epochs=epochs)
     
     # print test result
