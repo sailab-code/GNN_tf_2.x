@@ -31,11 +31,11 @@ Note that a single layered LGNN behaves exaclty like a GNN, as it is composed of
 ### Single model training and testing
 LGNN can be trained in parallel, serial or residual mode. 
 
-- Serial: GNNs layers are trained separately, one by one;
+- *Serial Mode*: GNNs layers are trained separately, one by one;
 
-- In *Parallel Mode*, GNN layers are trained simultaneously, by processing loss on the losses of all GNNs layers, s.t. `loss = sum( loss_function(targets, oi) for oi in gnns_layers_output)` and backpropagating the error throughout the GNN layers;
+- *Parallel Mode*: GNN layers are trained simultaneously, by processing loss on the losses of all GNNs layers, s.t. `loss = sum( loss_function(targets, oi) for oi in gnns_layers_output)` and backpropagating the error throughout the GNN layers;
 
-- In *Residual Mode*, GNN layers are trained simultaneously, by processing loss on the LGNN output, s.t. s.t. `loss = loss_function(targets, sum(oi for oi in gnns_layers_output))` and backpropagating the error throughout the GNN layers.e output of all GNNs layers.
+- *Residual Mode*: GNN layers are trained simultaneously, by processing loss on the LGNN output, s.t. s.t. `loss = loss_function(targets, sum(oi for oi in gnns_layers_output))` and backpropagating the error throughout the GNN layers.e output of all GNNs layers.
 
 Training mode can be set as argument when calling `LGNN.train()`. Default value is `parallel`.
 
@@ -58,9 +58,6 @@ To perform models training and testing, run:
     
     # LGNN training in parallel mode
     # lgnn.train(gTr, epochs, gVa)
-    
-    # LGNN training in serial mode
-    # lgnn.train(gTr, epochs, gVa, serial_training=True)
     
     # LGNN test
     # res = lgnn.test(gTe)
