@@ -141,6 +141,10 @@ class LGNN(BaseGNN):
                        path_writer=path_writer, namespace=namespace, **config)
 
     ## GETTERS AND SETTERS METHODs ####################################################################################
+    def get_dense_layers(self) -> list[tf.keras.layers.Layer]:
+        """ Get dense layer for the application of regularizers in training time """
+        return [layer for gnn in self.gnns for layer in gnn.get_dense_layers()]
+
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:
         """ Get tensor weights for net_state and net_output for each gnn layer """
         return [i.net_state.trainable_variables for i in self.gnns], [i.net_output.trainable_variables for i in self.gnns]

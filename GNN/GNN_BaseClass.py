@@ -95,6 +95,12 @@ class BaseGNN(ABC):
 
     # -----------------------------------------------------------------------------------------------------------------
     @abstractmethod
+    def get_dense_layers(self) -> list[tf.keras.layers.Layer]:
+        """ Get dense layer for the application of regularizers in training time """
+        pass
+
+    # -----------------------------------------------------------------------------------------------------------------
+    @abstractmethod
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:
         """ Get tensor weights for net_state and net_output for each gnn layer """
         pass
@@ -222,10 +228,19 @@ class BaseGNN(ABC):
             return valid_loss, 0, wst, wout
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        def apply_regularizer():
+            extra_loss = 0
+            for layer in self.get_dense_layers():
+                if layer.kernel_regularizer is not None: extra_loss += layer.kernel_regularizer(layer.kernel)
+                if layer.bias_regularizer is not None: extra_loss += layer.bias_regularizer(layer.bias)
+            return extra_loss
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         def training_step(gTr: GraphObject, mean: bool) -> None:
             """ compute the gradients and apply them """
             with tf.GradientTape() as tape:
                 iter, loss, *_ = self.evaluate_single_graph(gTr, class_weights, training=True)
+                loss += apply_regularizer()
             wS, wO = self.trainable_variables()
             dwbS, dwbO = tape.gradient(loss, [wS, wO])
             # average net_state dw and db w.r.t. the number of iteration.
@@ -350,7 +365,7 @@ class BaseGNN(ABC):
             number_of_batches: int = 10, useVa: bool = False, seed: Optional[float] = None, normalize_method: str = 'gTr',
             node_aggregation: str = 'average', acc_classes: bool = False, epochs: int = 500, training_mode='parallel',
             update_freq: int = 10, max_fails: int = 10, class_weights: Union[int, float, list[Union[float, int]]] = 1,
-            mean: bool = True, verbose: int = 3, pos_label=0) -> dict[str, list[float]]:
+            mean: bool = True, verbose: int = 3) -> dict[str, list[float]]:
         """ LEAVE K OUT CROSS VALIDATION PROCEDURE
 
         :param dataset: a single GraphObjetc OR a list of GraphObject OR list of lists of GraphObject on which <gnn> has to be valuated
@@ -427,7 +442,7 @@ class BaseGNN(ABC):
         elif isinstance(dataset, list):
             # check type if dataset is a list
             if all(isinstance(i, GraphObject) for i in dataset): dataset = [dataset]
-            assert all(len(i)>number_of_batches for i in dataset)
+            assert all(len(i) > number_of_batches for i in dataset)
             assert all(isinstance(i, list) for i in dataset) and all(isinstance(j, GraphObject) for i in dataset for j in i)
 
             # shuffle entire dataset or classes sub-dataset
@@ -435,8 +450,10 @@ class BaseGNN(ABC):
 
             # get problem_based param
             problems = {GNNnodeBased: 'n', GNNedgeBased: 'a', GNNgraphBased: 'g'}
-            if type(self) == LGNN:  problem_based = problems[self.GNNS_TYPE]
-            else: problem_based = problems[type(self)]
+            if type(self) == LGNN:
+                problem_based = problems[self.GNNS_TYPE]
+            else:
+                problem_based = problems[type(self)]
 
             # get dataset batches and flatten lists to obtain a list of lists, then shuffle again to mix classes inside batches
             dataset_batches = [getbatches(elem, problem_based, node_aggregation, -1, number_of_batches, False) for i, elem in enumerate(dataset)]
@@ -478,7 +495,7 @@ class BaseGNN(ABC):
             print(f'\nBATCH K-OUT {i + 1}/{number_of_batches}')
             temp = self.copy(copy_weights=False, path_writer=self.path_writer + str(i), namespace=f'Batch {i + 1}-{number_of_batches}')
             temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose, **kwargs)
-            res = temp.test(gTe, acc_classes=acc_classes, pos_label=pos_label)
+            res = temp.test(gTe, acc_classes=acc_classes)
 
             # evaluate metrics
             for m in res: metrics[m].append(res[m])
