@@ -36,9 +36,12 @@ def FNR(y_true, y_pred):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def accuracy_per_class(y_true, y_pred):
+def accuracy_per_class(y_true, y_pred, class_label: int = None):
     mat = mt.confusion_matrix(y_true=y_true, y_pred=y_pred)
-    return np.diag(mat) / np.sum(mat, axis=1)
+    class_accuracy = np.diag(mat) / np.sum(mat, axis=1)
+    if class_label is not None:
+        class_accuracy = class_accuracy[class_label]
+    return class_accuracy
 
 
 # ---------------------------------------------------------------------------------------------------------------------

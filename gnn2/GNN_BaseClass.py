@@ -179,14 +179,16 @@ class BaseGNN(ABC):
         y_pred = tf.argmax(y_score, axis=1) if self.addressed_problem == 'c' else y_score
 
         # evaluate metrics
-        metr = {k: float(tf.reduce_mean(self.extra_metrics[k](y_true, y_pred, **self.mt_args.get(k, dict())))) for k in self.extra_metrics}
-        metr['It'] = int(tf.reduce_mean(iters))
-        metr['Loss'] = float(tf.reduce_mean(loss))
-        return metr, metr['Loss'], y_true, y_pred, targets, y_score
+        metrics = {k: self.extra_metrics[k](y_true, y_pred, **self.mt_args.get(k, dict())) for k in self.extra_metrics}
+        metrics = {k: float(tf.reduce_mean(metrics[k])) for k in metrics}
+        # metr = {k: float(tf.reduce_mean(self.extra_metrics[k](y_true, y_pred, **self.mt_args.get(k, dict())))) for k in self.extra_metrics}
+        metrics['It'] = int(tf.reduce_mean(iters))
+        metrics['Loss'] = float(tf.reduce_mean(loss))
+        return metrics, y_true, y_pred, targets, y_score
 
     ## TRAINING METHOD ################################################################################################
     def train(self, gTr: Union[GraphObject, list[GraphObject]], epochs: int, gVa: Union[GraphObject, list[GraphObject], None] = None,
-              update_freq: int = 10, max_fails: int = 10, class_weights: Union[int, list[float]] = 1,
+              update_freq: int = 10, max_fails: int = 10, observed_metric='Loss', policy='min', class_weights: Union[int, list[float]] = 1,
               *, mean: bool = True, verbose: int = 3) -> None:
         """ TRAINING PROCEDURE
 
@@ -195,6 +197,8 @@ class BaseGNN(ABC):
         :param gVa: element/list of GraphsObjects for early stopping. Default None, no early stopping performed.
         :param update_freq: (int) how many epochs must be completed before evaluating gVa and gTr and/or print learning progress. Default 10.
         :param max_fails: (int) specifies the max number of failures in gVa improvement loss evaluation before early sopping. Default 10.
+        :param observed_metric: (str) key of the metric to be observed for early sopping
+        :param policy: (str) possible choices: ['min','max'], to minimize/maximize :param observed_metric: during learning procedure
         :param class_weights: (list) [w0, w1,...,wc] in classification task when targets are 1-hot, specify the weight for weighted loss. Default 1.
                                      > removed in future version
         :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, otherwise as the mean. Default True.
@@ -222,10 +226,10 @@ class BaseGNN(ABC):
             return elem
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        def reset_validation(valid_loss: float) -> tuple[float, int, list[list[array]], list[list[array]]]:
+        def reset_validation(new_valid_best_metric_value: float) -> tuple[float, int, list[list[array]], list[list[array]]]:
             """ reset the validation check parameters and to save the 'best weights until now' """
             wst, wout = self.get_weights()
-            return valid_loss, 0, wst, wout
+            return new_valid_best_metric_value, 0, wst, wout
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         def regularizer_terms():
@@ -258,7 +262,7 @@ class BaseGNN(ABC):
         # initialize history attribute and writer directory
         if not self.history:
             keys = ['Epoch'] + [i + j for i in ['It', 'Loss'] + list(self.extra_metrics) for j in ([' Tr', ' Va'] if gVa else [' Tr'])]
-            if gVa: keys += ['Fail', 'Best Loss Va']
+            if gVa: keys += ['Fail', f'Best {observed_metric} Va']
             self.history.update({i: list() for i in keys})
             os.makedirs(self.path_writer)
 
@@ -267,8 +271,11 @@ class BaseGNN(ABC):
         netO_writer = tf.summary.create_file_writer(self.path_writer + 'Net - Output')
         trainining_writer = tf.summary.create_file_writer(self.path_writer + 'Training')
         if gVa:
-            lossVa = self.history['Best Loss Va'][-1] if self.history['Best Loss Va'] else float(1e30)
-            vbest_loss, vfails, ws, wo = reset_validation(lossVa)
+            assert policy in ['min', 'max']
+            best_valid_key = f'Best {observed_metric} Va'
+            policy_function, valid_new_metric_value = (np.less, float(1e30)) if policy == 'min' else (np.greater, float(-1e30))
+            valid_new_metric_value = self.history[best_valid_key][-1] if self.history[best_valid_key] else valid_new_metric_value
+            valid_best_metric, valid_fails, ws, wo = reset_validation(valid_new_metric_value)
             validation_writer = tf.summary.create_file_writer(self.path_writer + 'Validation')
 
         # pre-Training procedure: check if it's the first learning time to correctly update tensorboard
@@ -297,21 +304,22 @@ class BaseGNN(ABC):
 
             # VALIDATION STEP
             if (e % update_freq == 0) and gVa:
-                metricsVa, lossVa, *_ = self.evaluate(gVa, class_weights)
+                metricsVa, *_ = self.evaluate(gVa, class_weights)
+                valid_new_metric_value = metricsVa[observed_metric]
                 # Validation check
-                if lossVa < vbest_loss:
-                    vbest_loss, vfails, ws, wo = reset_validation(lossVa)
+                # if valid_new_metric_value < valid_best_metric:
+                if policy_function(valid_new_metric_value, valid_best_metric):
+                    valid_best_metric, valid_fails, ws, wo = reset_validation(valid_new_metric_value)
                 else:
-                    vfails += 1
+                    valid_fails += 1
                 # History Update
-                self.history['Best Loss Va'].append(vbest_loss)
-                self.history['Fail'].append(vfails)
+                self.history[best_valid_key].append(valid_best_metric)
+                self.history['Fail'].append(valid_fails)
                 update_history('Va', metricsVa)
                 # TensorBoard Update Va: Losses, Interation@Convergence, Accuracies + histograms of weights
                 self.write_scalars(validation_writer, metricsVa, e)
                 # Early Stoping - reached max_fails for validation set
-                if vfails >= max_fails:
-                    self.set_weights(ws, wo)
+                if valid_fails >= max_fails:
                     if verbose in [1, 3]: self.printHistory()
                     print('\r Validation Stop')
                     break
@@ -322,13 +330,16 @@ class BaseGNN(ABC):
         else:
             print('\r End of Epochs Stop')
 
+        # if end of epochs is reached and you're using early stopping, take weights of the overall best epochs
+        if gVa: self.set_weights(ws, wo)
+
         # Tensorboard Update FINAL: write BEST WEIGHTS + BIASES
         for i, j, namespace in zip(*self.get_weights(), self.namespace):
             self.write_net_weights(netS_writer, namespace, 'N1', i, e)
             self.write_net_weights(netO_writer, namespace, 'N2', j, e)
 
     ## TEST METHOD ####################################################################################################
-    def test(self, gTe: Union[GraphObject, list[GraphObject]], *, class_weights=1, acc_classes: bool = False, rocdir: str = '',
+    def test(self, gTe: Union[GraphObject, list[GraphObject]], *, class_weights=1, rocdir: str = '',
              micro_and_macro: bool = False, prisofsdir: str = '', pos_label=0) -> dict[str, list[float]]:
         """ TEST PROCEDURE
 
@@ -348,12 +359,7 @@ class BaseGNN(ABC):
             raise TypeError('type of params <roc> and <prisofs> must be str')
 
         # Evaluate all the metrics in gnn.extra_metrics + Iter and Loss
-        metricsTe, lossTe, y_true, y_pred, targets, y_score = self.evaluate(gTe, class_weights=class_weights)
-
-        # Accuracy per Class: shape = (1,number_classes)
-        if acc_classes and self.addressed_problem == 'c':
-            accuracy_classes = mt.accuracy_per_class(y_true, y_pred)
-            metricsTe['Acc Classes'] = accuracy_classes.tolist()
+        metricsTe, y_true, y_pred, targets, y_score = self.evaluate(gTe, class_weights=class_weights)
 
         # ROC e PR curves
         if rocdir: mt.ROC(targets, y_score, rocdir, micro_and_macro, pos_label=pos_label)
@@ -363,8 +369,8 @@ class BaseGNN(ABC):
     ## K-FOLD CROSS VALIDATION METHOD #################################################################################
     def LKO(self, dataset: Union[GraphObject, list[GraphObject], list[list[GraphObject]]],
             number_of_batches: int = 10, useVa: bool = False, seed: Optional[float] = None, normalize_method: str = 'gTr',
-            node_aggregation: str = 'average', acc_classes: bool = False, epochs: int = 500, training_mode='parallel',
-            update_freq: int = 10, max_fails: int = 10, class_weights: Union[int, float, list[Union[float, int]]] = 1,
+            node_aggregation: str = 'average', epochs: int = 500, training_mode='parallel', update_freq: int = 10,
+            max_fails: int = 10, observed_metric: str = 'Loss', policy='min', class_weights: Union[int, float, list[Union[float, int]]] = 1,
             mean: bool = True, verbose: int = 3) -> dict[str, list[float]]:
         """ LEAVE K OUT CROSS VALIDATION PROCEDURE
 
@@ -385,6 +391,8 @@ class BaseGNN(ABC):
         :param training_mode: (str) for lgnn cross validation procedure. LGNN.train() for details.
         :param update_freq: (int) specifies how many epochs must be completed before evaluating gVa and gTr.
         :param max_fails: (int) specifies the max number of failures before early sopping.
+        :param observed_metric: (str) key of the metric to be observed for early sopping
+        :param policy: (str) possible choices: ['min','max'], to minimize/maximize :param observed_metric: during learning procedure
         :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss.
         :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, else as the mean.
         :param verbose: (int) 0: silent mode; 1: print history; 2: print epochs/batches, 3: history + epochs/batches. Default 3.
@@ -395,6 +403,8 @@ class BaseGNN(ABC):
         from numpy import random, arange, array_split
         from GNN.GNN import GNNnodeBased, GNNedgeBased, GNNgraphBased
         from GNN.LGNN.LGNN import LGNN
+
+        assert number_of_batches > 1 + useVa
 
         # Shuffling procedure: set or not seed parameter, then shuffle classes and/or elements in each class/dataset
         if seed: random.seed(seed)
@@ -479,7 +489,6 @@ class BaseGNN(ABC):
 
         # initialize results
         metrics = {i: list() for i in list(self.extra_metrics) + ['It', 'Loss']}
-        if acc_classes: metrics['Acc Classes'] = list()
 
         # If model is LGNN, integrate training_mode in training procedure as kwargs dict
         kwargs = dict()
@@ -494,8 +503,8 @@ class BaseGNN(ABC):
             # model creation, learning and test
             print(f'\nBATCH K-OUT {i + 1}/{number_of_batches}')
             temp = self.copy(copy_weights=False, path_writer=self.path_writer + str(i), namespace=f'Batch {i + 1}-{number_of_batches}')
-            temp.train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose, **kwargs)
-            res = temp.test(gTe, acc_classes=acc_classes)
+            temp.train(gTr, epochs, gVa, update_freq, max_fails, observed_metric, policy, class_weights, mean=mean, verbose=verbose, **kwargs)
+            res = temp.test(gTe, class_weights=class_weights)
 
             # evaluate metrics
             for m in res: metrics[m].append(res[m])
