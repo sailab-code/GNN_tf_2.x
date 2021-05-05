@@ -3,7 +3,7 @@
 import os
 
 import numpy as np
-
+from scipy.sparse import coo_matrix
 
 #######################################################################################################################
 ## GRAPH OBJECT CLASS #################################################################################################
@@ -71,10 +71,9 @@ class GraphObject:
     # -----------------------------------------------------------------------------------------------------------------
     def buildAdiacencyMatrix(self):
         """ Build Adjacency Matrix ADJ of the graph, s.t. ADJ[i,j]=1 if edge (i,j) exists in graph edges set. """
-        from scipy.sparse import coo_matrix
         values = np.ones(self.arcs.shape[0], dtype='float32')
         indices = self.arcs[:, :2].astype(int)
-        return coo_matrix((values, (indices[:, 0], indices[:, 1])), shape=(len(self.nodes), len(self.nodes)), dtype='float32')
+        return coo_matrix((values, (indices[:, 0], indices[:, 1])), shape=(self.nodes.shape[0], self.nodes.shape[0]), dtype='float32')
 
     # -----------------------------------------------------------------------------------------------------------------
     def buildArcNode(self, node_aggregation: str):
@@ -106,8 +105,7 @@ class GraphObject:
             values_vector = values_vector * float(1 / len(col))
             
         # isolated nodes correction: if nodes[i] is isolated, then ArcNode[:,i]=0, to maintain nodes ordering
-        from scipy.sparse import coo_matrix
-        return coo_matrix((values_vector, (row, self.arcs[:, 1])), shape=(len(self.arcs), len(self.nodes)), dtype='float32')
+        return coo_matrix((values_vector, (row, self.arcs[:, 1])), shape=(self.arcs.shape[0], self.nodes.shape[0]), dtype='float32')
 
     # -----------------------------------------------------------------------------------------------------------------
     def setArcNode(self, node_aggregation: str):

@@ -142,10 +142,9 @@ class GNNnodeBased(BaseGNN):
     ## GETTERS AND SETTERS METHODs ####################################################################################
     def get_dense_layers(self) -> list[tf.keras.layers.Layer]:
         """ Get dense layer for the application of regularizers in training time """
-        netSt_dense_layers = [i for i in self.net_state.layers if isinstance(i,tf.keras.layers.Dense)]
+        netSt_dense_layers = [i for i in self.net_state.layers if isinstance(i, tf.keras.layers.Dense)]
         netOut_dense_layers = [i for i in self.net_output.layers if isinstance(i, tf.keras.layers.Dense)]
         return netSt_dense_layers + netOut_dense_layers
-
 
     def trainable_variables(self) -> tuple[list[list[tf.Tensor]], list[list[tf.Tensor]]]:
         """ Get tensor weights for net_state and net_output """
@@ -269,7 +268,6 @@ class GNNnodeBased(BaseGNN):
         return k, state, out
 
 
-
 #######################################################################################################################
 ### CLASS GNN - EDGE BASED ############################################################################################
 #######################################################################################################################
@@ -296,7 +294,6 @@ class GNNedgeBased(GNNnodeBased):
         return tf.boolean_mask(arc_state, mask)
 
 
-
 #######################################################################################################################
 ### CLASS GNN - GRAPH BASED ###########################################################################################
 #######################################################################################################################
@@ -320,7 +317,6 @@ class GNNgraphBased(GNNnodeBased):
         nodegraph = tf.constant(g.getNodeGraph(), dtype=tf.float32)
         out_gnn = tf.matmul(nodegraph, out_nodes, transpose_a=True)
         return iter, state_nodes, out_gnn
-
 
 
 #######################################################################################################################

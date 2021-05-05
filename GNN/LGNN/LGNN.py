@@ -92,7 +92,7 @@ class LGNN(BaseGNN):
         for i, gnn in enumerate(self.gnns): gnn.save(f'{path}GNN{i}/')
 
         # save configuration file in json format
-        gnns_type = {GNNnodeBased:'n', GNNedgeBased:'a', GNNgraphBased:'g' }
+        gnns_type = {GNNnodeBased: 'n', GNNedgeBased: 'a', GNNgraphBased: 'g'}
         config = {'get_state': self.get_state, 'get_output': self.get_output,
                   'loss_function': tf.keras.losses.serialize(self.loss_function), 'loss_arguments': self.loss_args,
                   'optimizer': str(tf.keras.optimizers.serialize(self.optimizer)),
@@ -126,7 +126,7 @@ class LGNN(BaseGNN):
             config = loads(read_file.read())
 
         # load GNNs
-        gnns_type = {'n':GNNnodeBased, 'a':GNNedgeBased, 'g':GNNgraphBased}
+        gnns_type = {'n': GNNnodeBased, 'a': GNNedgeBased, 'g': GNNgraphBased}
         gnns_type = gnns_type[config.pop('gnns_type')]
         gnns = [gnns_type.load(f'{path}{i}', path_writer=f'{path_writer}{namespace} - GNN{i}/', namespace='GNN')
                 for i in listdir(path) if isdir(f'{path}{i}')]
@@ -138,7 +138,7 @@ class LGNN(BaseGNN):
         # get extra metrics
         extra_metrics = {i: Metrics[i] for i in config.pop('extra_metrics')}
         return self(gnns=gnns, optimizer=optz, loss_function=loss, extra_metrics=extra_metrics,
-                       path_writer=path_writer, namespace=namespace, **config)
+                    path_writer=path_writer, namespace=namespace, **config)
 
     ## GETTERS AND SETTERS METHODs ####################################################################################
     def get_dense_layers(self) -> list[tf.keras.layers.Layer]:
@@ -277,7 +277,7 @@ class LGNN(BaseGNN):
 
     ## TRAINING METHOD ################################################################################################
     def train(self, gTr: Union[GraphObject, list[GraphObject]], epochs: int, gVa: Union[GraphObject, list[GraphObject], None] = None,
-              update_freq: int = 10, max_fails: int = 10, class_weights: Union[int, list[float]] = 1,
+              update_freq: int = 10, max_fails: int = 10, observed_metric: str = 'Loss', policy='min', class_weights: Union[int, list[float]] = 1,
               *, mean: bool = True, training_mode: str = 'residual', verbose: int = 3) -> None:
         """ LEARNING PROCEDURE
 
@@ -323,7 +323,7 @@ class LGNN(BaseGNN):
                 if verbose in [1, 3]: print(f'\n\n------------------- GNN{idx} -------------------\n')
 
                 # train the idx-th gnn
-                gnn.train(gTr1, epochs, gVa1, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)
+                gnn.train(gTr1, epochs, gVa1, update_freq, max_fails, observed_metric, policy, class_weights, mean=mean, verbose=verbose)
 
                 # extrapolate state and output to update labels
                 _, sTr, oTr = zip(*[super(GNNgraphBased, gnn).Loop(i) if type(gnn) == GNNgraphBased else gnn.Loop(i) for i in gTr1])
@@ -334,4 +334,4 @@ class LGNN(BaseGNN):
 
         # RESIDUAL OR PARALLEL TRAINING
         else:
-            super().train(gTr, epochs, gVa, update_freq, max_fails, class_weights, mean=mean, verbose=verbose)
+            super().train(gTr, epochs, gVa, update_freq, max_fails, observed_metric, policy, class_weights, mean=mean, verbose=verbose)

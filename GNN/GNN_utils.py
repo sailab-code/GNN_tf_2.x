@@ -230,3 +230,14 @@ def normalize_graphs(gTr: Union[GraphObject, list[GraphObject]], gVa: Optional[U
     for i in gTr + gVa + gTe:
         i.nodes = node_scaler.transform(i.nodes)
         i.arcs = arcs_scaler.transform(i.arcs)
+
+# -------------------------------------------------------------
+def getsetup(varlist):
+    setup = ''
+    for i in varlist:
+        if str(i)[0] == '_': continue
+        if 'module' in str(type(eval(i))): continue
+        if 'function' in str(type(eval(i))): continue
+        if setup != '': setup += '\n'
+        setup += str(i) + ': ' + str(eval(i))
+    return setup
