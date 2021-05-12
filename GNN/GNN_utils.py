@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Union, Optional
 
 import numpy as np
+import tensorflow as tf
 
-from GNN.graph_class import GraphObject
+from GNN.graph_class import GraphObject, GraphTensor
 
 
 #######################################################################################################################
@@ -13,7 +14,7 @@ from GNN.graph_class import GraphObject
 
 # ---------------------------------------------------------------------------------------------------------------------
 def randomGraph(nodes_number: int, dim_node_label: int, dim_arc_label: int, dim_target: int, density: float,
-                *, normalize_features: bool = False, aggregation: str = 'average',
+                *, normalize_features: bool = False, aggregation_mode: str = 'average',
                 problem_based: str = 'n') -> GraphObject:
     """ Create randoms nodes and arcs matrices, such that label of arc (i,j) == (j,i)
 
@@ -23,7 +24,7 @@ def randomGraph(nodes_number: int, dim_node_label: int, dim_arc_label: int, dim_
     :param dim_target: number of components for a generic target 1-hot
     :param density: define the "max" density for the graph
     :param normalize_features: (bool) if True normalize the column of the labels, otherwise raw data will be considered
-    :param aggregation: (str) in ['average','normalized','sum']. Default 'average'. Go to GraphObject.buildArcNode() for details
+    :param aggregation_mode: (str) in ['average','normalized','sum']. Default 'average'. Go to GraphObject.buildArcNode() for details
     :param problem_based: (str) in ['n','a','g']: 'n'-nodeBased; 'a'-arcBased; 'g'-graphBased
     :return: GraphObject
     """
@@ -80,11 +81,11 @@ def randomGraph(nodes_number: int, dim_node_label: int, dim_arc_label: int, dim_
 
     # RETURN GRAPH
     return GraphObject(arcs=arcs, nodes=nodes, targets=targs, problem_based=problem_based,
-                       output_mask=output_mask, node_aggregation=aggregation)
+                       output_mask=output_mask, aggregation_mode=aggregation_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def simple_graph(problem_based: str, aggregation: str = 'average') -> GraphObject:
+def simple_graph(problem_based: str, aggregation_mode: str = 'average') -> GraphObject:
     """ return a single simple GraphObject for debugging purpose """
     nodes = np.array([[11, 21], [12, 22], [13, 23], [14, 24]])
     arcs = np.array([[0, 1, 10], [0, 2, 40], [1, 0, 10], [1, 2, 20], [2, 0, 40], [2, 1, 20], [2, 3, 30], [3, 2, 30]])
@@ -101,7 +102,7 @@ def simple_graph(problem_based: str, aggregation: str = 'average') -> GraphObjec
     else:
         targs[0, 1] = 1
 
-    return GraphObject(arcs=arcs, nodes=nodes, targets=targs, problem_based=problem_based, node_aggregation=aggregation)
+    return GraphObject(arcs=arcs, nodes=nodes, targets=targs, problem_based=problem_based, aggregation_mode=aggregation_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -149,7 +150,7 @@ def getindices(len_dataset: int, perc_Train: float = 0.7, perc_Valid: float = 0.
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def getSet(glist: list[GraphObject], set_indices: list[int], problem_based: str, node_aggregation: str,
+def getSet(glist: list[GraphObject], set_indices: list[int], problem_based: str, aggregation_mode: str,
            verbose: bool = False) -> list[GraphObject]:
     """ get the Set from a dataset given its set of indices
 
@@ -169,11 +170,11 @@ def getSet(glist: list[GraphObject], set_indices: list[int], problem_based: str,
         setlist.append(glist[elem])
         if verbose: progressbar((i + 1) * 100 / length)
 
-    return [GraphObject.load(i, problem_based=problem_based, node_aggregation=node_aggregation) for i in setlist]
+    return [GraphObject.load(i, problem_based=problem_based, aggregation_mode=aggregation_mode) for i in setlist]
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def getbatches(glist: list[GraphObject], problem_based: str, node_aggregation: str, batch_size: int = 32, number_of_batches=None,
+def getbatches(glist: list[GraphObject], problem_based: str, aggregation_mode: str, batch_size: int = 32, number_of_batches=None,
                one_graph_per_batch=True) -> Union[list[GraphObject], list[list[GraphObject]]]:
     """ Divide the Set into batches, in which every batch is a GraphObject or a list of GraphObject
 
@@ -188,7 +189,8 @@ def getbatches(glist: list[GraphObject], problem_based: str, node_aggregation: s
         batches = [glist[i:i + batch_size] for i in range(0, len(glist), batch_size)]
     else:
         batches = [list(i) for i in np.array_split(glist, number_of_batches)]
-    if one_graph_per_batch: batches = [GraphObject.merge(i, problem_based=problem_based, node_aggregation=node_aggregation) for i in batches]
+    if one_graph_per_batch: batches = [GraphObject.merge(i, problem_based=problem_based, aggregation_mode=aggregation_mode) for i in
+                                       batches]
     return batches
 
 
@@ -217,8 +219,8 @@ def normalize_graphs(gTr: Union[GraphObject, list[GraphObject]], gVa: Optional[U
     if based_on not in ['gTr', 'all']: raise ValueError('param <based_on> must be \'gTr\' or \'all\'')
 
     # merge all the graphs into a single one
-    G = GraphObject.merge(gTr, problem_based='n', node_aggregation='sum')
-    if based_on == 'all': G = GraphObject.merge(G + gTe + gVa, problem_based='n', node_aggregation='sum')
+    G = GraphObject.merge(gTr, problem_based='n', aggregation_mode='sum')
+    if based_on == 'all': G = GraphObject.merge(G + gTe + gVa, problem_based='n', aggregation_mode='sum')
 
     from sklearn.preprocessing import MinMaxScaler
     node_scaler = MinMaxScaler(feature_range=(0, 1) if norm_rangeN is None else norm_rangeN)
@@ -231,13 +233,121 @@ def normalize_graphs(gTr: Union[GraphObject, list[GraphObject]], gVa: Optional[U
         i.nodes = node_scaler.transform(i.nodes)
         i.arcs = arcs_scaler.transform(i.arcs)
 
-# -------------------------------------------------------------
-def getsetup(varlist):
-    setup = ''
-    for i in varlist:
-        if str(i)[0] == '_': continue
-        if 'module' in str(type(eval(i))): continue
-        if 'function' in str(type(eval(i))): continue
-        if setup != '': setup += '\n'
-        setup += str(i) + ': ' + str(eval(i))
-    return setup
+
+# ---------------------------------------------------------------------------------------------------------------------
+def prepare_LKO_data(dataset: Union[GraphObject, list[GraphObject], list[list[GraphObject]]],
+                     problem_based: str, number_of_batches: int = 10, useVa: bool = False, seed: Optional[float] = None,
+                     normalize_method: str = 'gTr', aggregation_mode: str = 'average') \
+        -> tuple[Union[list[GraphTensor], list[list[GraphTensor]]], list[GraphTensor], Optional[list[GraphTensor]]]:
+    """ Prepare dataset for Leave K-Out procedure. The output of this function must be passed as arg[0] of model.LKO() method.
+    :param dataset: a single GraphObject OR a list of GraphObject OR list of lists of GraphObject on which <gnn> has to be valuated
+                    > NOTE: for graph-based problem, if type(dataset) == list of GraphObject,
+                    s.t. len(dataset) == number of graphs in the dataset, then i-th class will may be have different frequencies among batches
+                    [so the i-th class may me more present in a batch and absent in another batch].
+                    Otherwise, if type(dataset) == list of lists, s.t. len(dataset) == number of classes AND len(dataset[i]) == number of graphs
+                    belonging to i-th class, then i-th class will have the same frequency among all the batches
+                    [so the i-th class will be as frequent in a single batch as in the entire dataset].
+    :param problem_based: (str) for specifying the problem ['n'-node based, 'a'-arc based or 'g'-graph based]
+    :param number_of_batches: (int) define how many batches will be considered in LKO procedure.
+    :param useVa: (bool) if True, Early Stopping is considered during learning procedure; None otherwise.
+    :param seed: (int or None) for fixed-shuffle options.
+    :param normalize_method: (str) in ['','gTr,'all'], see normalize_graphs for details. If equal to '', no normalization is performed.
+    :param aggregation_mode: (str) for aggregation method during dataset creation. See GraphObject for details."""
+    assert number_of_batches > 1 + useVa
+
+    # Shuffling procedure: set or not seed parameter, then shuffle classes and/or elements in each class/dataset
+    if seed: np.random.seed(seed)
+
+    # define useful lambda function to be used in any case
+    flatten = lambda l: [item for sublist in l for item in sublist]
+
+    # define lists for LKO -> output
+    gTRs, gTEs, gVAs = list(), list(), list()
+
+    # SINGLE GRAPH CASE: batches are obtaind by setting set_masks for training, test and validation (if any)
+    if isinstance(dataset, GraphObject):
+        zero_mask = np.zeros(len(dataset.set_mask), dtype=bool)
+
+        # normalization procedure - available only on GraphObject
+        if normalize_method: normalize_graphs(dataset, None, None, based_on=normalize_method)
+
+        # convert GraphObject to GraphTensor
+        dataset = GraphTensor.fromGraphObject(dataset)
+
+        # only set_mask differs in graphs, since nodes and arcs are exactly the same
+        mask_indicess = np.arange(len(zero_mask))
+        np.random.shuffle(mask_indicess)
+        masks = np.array_split(mask_indicess, number_of_batches)
+
+        for i in range(len(masks)):
+            M = masks.copy()
+
+            # test batch
+            mTe = M.pop(i)
+            maskTe = zero_mask.copy()
+            maskTe[mTe] = True
+            gTe = dataset.copy()
+            gTe.set_mask = tf.constant(maskTe, dtype=bool)
+
+            # validation batch
+            gVa = None
+            if useVa:
+                mVa = M.pop(-1)
+                maskVa = zero_mask.copy()
+                maskVa[mVa] = True
+                gVa = dataset.copy()
+                gVa.set_mask = tf.constant(maskTe, dtype=bool)
+
+            # training batch - all the others
+            mTr = flatten(M)
+            maskTr = zero_mask.copy()
+            maskTr[mTr] = True
+            gTr = dataset.copy()
+            gTr.set_mask = tf.constant(maskTe, dtype=bool)
+
+            # append batch graphs
+            gTRs.append(gTr)
+            gTEs.append(gTe)
+            gVAs.append(gVa)
+
+    # MULTI GRAPH CASE: dataset is a list of graphs or a list of lists of graphs. :param dataset_ for details
+    elif isinstance(dataset, list):
+        # check type if dataset is a list
+        if all(isinstance(i, GraphObject) for i in dataset): dataset = [dataset]
+        assert all(len(i) > number_of_batches for i in dataset)
+        assert all(isinstance(i, list) for i in dataset) and all(isinstance(j, GraphObject) for i in dataset for j in i)
+
+        # shuffle entire dataset or classes sub-dataset
+        for i in dataset: np.random.shuffle(i)
+
+        # get dataset batches and flatten lists to obtain a list of lists, then shuffle again to mix classes inside batches
+        dataset_batches = [getbatches(elem, problem_based, aggregation_mode, -1, number_of_batches, False) for i, elem in
+                           enumerate(dataset)]
+        flattened = [flatten([i[j] for i in dataset_batches]) for j in range(number_of_batches)]
+        for i in flattened: np.random.shuffle(i)
+
+        # Final dataset for LKO procedure: merge graphs belonging to classes/dataset to obtain 1 GraphObject per batch
+        dataset = [GraphObject.merge(i, problem_based=problem_based, aggregation_mode=aggregation_mode) for i in flattened]
+
+        # Transform all the GraphObjects in GraphTensors
+        # dataset = [GraphTensor.fromGraphObject(g) for g in dataset]
+
+        # split dataset in training/validation/test set
+        for i in range(len(dataset)):
+            gTr = dataset.copy()
+            gTe = gTr.pop(i)
+            gVa = gTr.pop(-1) if useVa else None
+
+            # normalization procedure
+            if normalize_method: normalize_graphs(gTr, gTe, gVa, based_on=normalize_method)
+
+            # append batch graphs
+            # GraphObject->GraphTensor conversion is here because of the normalization procedure which is available only on GraphObjects
+            gTRs.append([GraphTensor.fromGraphObject(g) for g in gTr])
+            gTEs.append(GraphTensor.fromGraphObject(gTe))
+            gVAs.append(GraphTensor.fromGraphObject(gVa) if gVa is not None else None)
+
+    else:
+        raise TypeError('param <dataset> must be a GraphObject, a list of GraphObjects or a list of lists of Graphobjects')
+
+    return gTRs, gTEs, gVAs

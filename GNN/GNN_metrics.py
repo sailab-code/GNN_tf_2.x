@@ -151,4 +151,5 @@ def PRISOFS(targs, y_score, savedir='', pos_label=0):
 ######
 Metrics = {'Acc': mt.accuracy_score, 'Bacc': mt.balanced_accuracy_score, 'Js': mt.jaccard_score,
            'Ck': mt.cohen_kappa_score, 'Prec': mt.precision_score, 'Rec': mt.recall_score,
-           'Fs': mt.f1_score, 'Tpr': TPR, 'Tnr': TNR, 'Fpr': FPR, 'Fnr': FNR}
+           'Fs': mt.f1_score, 'Tpr': TPR, 'Tnr': TNR, 'Fpr': FPR, 'Fnr': FNR,
+           'Cl0': accuracy_per_class, 'Cl1':accuracy_per_class}
