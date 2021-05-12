@@ -21,7 +21,7 @@ use_MUTAG: bool = False
 # GENERIC GRAPH PARAMETERS. See utils.randomGraph for details
 # Node and edge labels are initialized randomly. Target clusters are given by sklearn.
 # Each graph has at least <min_nodes_number> nodes and at most <max_nodes_number> nodes
-# Possible <node_aggregation> for matrix ArcNoe belonging to graphs in ['average', 'normalized', 'sum']
+# Possible <aggregation_mode> for matrix ArcNoe belonging to graphs in ['average', 'normalized', 'sum']
 # Possible <problem_type> (str) s.t. len(problem_tye) in [2,3]: 'outputModel + problemAddressed + typeGNNTobeUsed'.
 # problem_type in ['cn', 'cn1', 'cn2', 'rn', 'rn1', 'rn2', 'ca', 'ca1', 'ra', 'ra1', 'cg', 'cg1', 'rg', 'rg1']
 # > ['c' classification, 'r' regression] + ['g' graph-based; 'n' node-based; 'a' arc-based;] +[('','1') GNN1, '2' GNN2]
@@ -34,7 +34,7 @@ dim_node_label      : int = 3
 dim_arc_label       : int = 1
 dim_target          : int = 2
 density             : float = 0.7
-node_aggregation    : str = 'average'
+aggregation_mode    : str = 'average'
 
 # LEARNING SETS PARAMETERS
 perc_Train          : float = 0.7
@@ -100,7 +100,7 @@ else:
                                 dim_target=dim_target,
                                 density=density,
                                 normalize_features=False,
-                                aggregation=node_aggregation,
+                                aggregation_mode=aggregation_mode,
                                 problem_based=problem_type[1])
               for i in range(graphs_number)]
 
@@ -112,9 +112,9 @@ gTe = [graphs[i] for i in iTe]
 gVa = [graphs[i] for i in iVa]
 
 # BATCHES - gTr is list of GraphObject; gVa and gTe are GraphObjects + use gTr[0] for taking useful dimensions
-gTr = utils.getbatches(gTr, batch_size=batch_size, problem_based=problem_type[1], node_aggregation=node_aggregation)
-gVa = GraphObject.merge(gVa, problem_based=problem_type[1], node_aggregation=node_aggregation)
-gTe = GraphObject.merge(gTe, problem_based=problem_type[1], node_aggregation=node_aggregation)
+gTr = utils.getbatches(gTr, batch_size=batch_size, problem_based=problem_type[1], aggregation_mode=aggregation_mode)
+gVa = GraphObject.merge(gVa, problem_based=problem_type[1], aggregation_mode=aggregation_mode)
+gTe = GraphObject.merge(gTe, problem_based=problem_type[1], aggregation_mode=aggregation_mode)
 gGen = gTr[0].copy()
 
 # GRAPHS NORMALIZATION, based on training graphs
