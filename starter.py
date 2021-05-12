@@ -25,7 +25,7 @@ use_MUTAG: bool = False
 # Possible <aggregation_mode> for matrix ArcNoe belonging to graphs in ['average', 'normalized', 'sum']
 # problem_based in ['n', 'a','g'] -> ['c' classification, 'r' regression]
 # addressed_problem in ['c', 'r'] -> ['g' graph-based; 'n' node-based; 'a' arc-based;]
-problem_based       : str = 'g'
+problem_based       : str = 'n'
 addressed_problem   : str = 'c'
 graphs_number       : int = 100
 min_nodes_number    : int = 15
