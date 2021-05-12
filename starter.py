@@ -6,7 +6,7 @@ import tensorflow as tf
 from numpy import random
 
 from GNN import GNN_metrics as mt, GNN_utils as utils
-from GNN.GNN import GNNnodeBased, GNNedgeBased, GNNgraphBased, GNN2
+from GNN.GNN import GNNnodeBased, GNNedgeBased, GNNgraphBased
 from GNN.LGNN.LGNN import LGNN
 from GNN.MLP import MLP, get_inout_dims
 from GNN.graph_class import GraphObject
@@ -156,7 +156,7 @@ nets_Out = [MLP(input_dim=i, layers=j,
                 dropout_pos=dropout_pos_out) for i, j in zip(input_net_out, layers_net_out)]
 
 # GNNs
-gnntype = {'n1': GNNnodeBased, 'n2': GNN2, 'a1': GNNedgeBased, 'g1': GNNgraphBased}[problem_type[1:]]
+gnntype = {'n1': GNNnodeBased, 'a1': GNNedgeBased, 'g1': GNNgraphBased}[problem_type[1:]]
 # noinspection PyTypeChecker
 gnns = [gnntype(net_state=st,
                 net_output=out,
