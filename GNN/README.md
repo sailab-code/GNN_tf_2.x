@@ -53,11 +53,6 @@ To visualize learning progress, use TensorBoard --logdir command providing the l
 
     ...\projectfolder> tensorboard --logdir writer
    
-   
-### GNN implementation flow chart
-The following image details the GNN model as it is implemented in `GNN / GNN.py`.
-![GNN Convergence Loop](GNN_flow_chart.png)
-
 
 ## Citing
 ### Implementation
