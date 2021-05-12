@@ -15,18 +15,18 @@ from GNN.graph_class import GraphObject
 # SCRIPT OPTIONS - modify the parameters to adapt the execution to the problem under consideration ####################
 #######################################################################################################################
 
-# MUTAG option - if True, gnn/lgnn is trained on a real-world dataset MUTAG, problem_type is set automatically to 'cg1'
+# MUTAG option - if True, gnn/lgnn is trained on a real-world dataset MUTAG
+# problem is set automatically to graph classification -> addressed_problem='c', problem_based='g'
 use_MUTAG: bool = False
 
 # GENERIC GRAPH PARAMETERS. See utils.randomGraph for details
 # Node and edge labels are initialized randomly. Target clusters are given by sklearn.
 # Each graph has at least <min_nodes_number> nodes and at most <max_nodes_number> nodes
 # Possible <aggregation_mode> for matrix ArcNoe belonging to graphs in ['average', 'normalized', 'sum']
-# Possible <problem_type> (str) s.t. len(problem_tye) in [2,3]: 'outputModel + problemAddressed + typeGNNTobeUsed'.
-# problem_type in ['cn', 'cn1', 'cn2', 'rn', 'rn1', 'rn2', 'ca', 'ca1', 'ra', 'ra1', 'cg', 'cg1', 'rg', 'rg1']
-# > ['c' classification, 'r' regression] + ['g' graph-based; 'n' node-based; 'a' arc-based;] +[('','1') GNN1, '2' GNN2]
-# > Example: 'ca' or 'ca1': arc-based classification with GNN; 'rn2' node-based regression with GNN2 (Rossi-Tiezzi)
-problem_type        : str = 'cn'
+# problem_based in ['n', 'a','g'] -> ['c' classification, 'r' regression]
+# addressed_problem in ['c', 'r'] -> ['g' graph-based; 'n' node-based; 'a' arc-based;]
+problem_based       : str = 'g'
+addressed_problem   : str = 'c'
 graphs_number       : int = 100
 min_nodes_number    : int = 15
 max_nodes_number    : int = 40
@@ -80,7 +80,7 @@ lossF           : tf.function = tf.keras.losses.categorical_crossentropy
 lossArguments   : Optional[dict[str, callable]] = {'from_logits': False}
 extra_metrics   : Optional[dict[str, callable]] = {i: mt.Metrics[i] for i in
                                                    ['Acc', 'Bacc', 'Tpr', 'Tnr', 'Fpr', 'Fnr', 'Ck', 'Js', 'Prec', 'Rec', 'Fs']}
-metrics_args    : Optional[dict[str, dict[str, any]]] = {i: {'avg': 'weighted', 'pos_label': 1} for i in ['Fs', 'Prec', 'Rec', 'Js']}
+metrics_args    : Optional[dict[str, dict[str, any]]] = {i: {'average': 'weighted', 'zero_division': 0} for i in ['Fs', 'Prec', 'Rec', 'Js']}
 
 #######################################################################################################################
 # SCRIPT ##############################################################################################################
@@ -89,11 +89,11 @@ metrics_args    : Optional[dict[str, dict[str, any]]] = {i: {'avg': 'weighted', 
 ### LOAD DATASET
 if use_MUTAG:
     # from MUTAG
-    problem_type = 'cg1'
+    addressed_problem = 'c'
+    problem_based = 'g'
     from load_MUTAG import graphs
 else:
     # random graphs
-    if len(problem_type) == 2: problem_type += '1'
     graphs = [utils.randomGraph(nodes_number=int(random.choice(range(min_nodes_number, max_nodes_number))),
                                 dim_node_label=dim_node_label,
                                 dim_arc_label=dim_arc_label,
@@ -101,7 +101,7 @@ else:
                                 density=density,
                                 normalize_features=False,
                                 aggregation_mode=aggregation_mode,
-                                problem_based=problem_type[1])
+                                problem_based=problem_based)
               for i in range(graphs_number)]
 
 ### PREPROCESSING
@@ -112,9 +112,9 @@ gTe = [graphs[i] for i in iTe]
 gVa = [graphs[i] for i in iVa]
 
 # BATCHES - gTr is list of GraphObject; gVa and gTe are GraphObjects + use gTr[0] for taking useful dimensions
-gTr = utils.getbatches(gTr, batch_size=batch_size, problem_based=problem_type[1], aggregation_mode=aggregation_mode)
-gVa = GraphObject.merge(gVa, problem_based=problem_type[1], aggregation_mode=aggregation_mode)
-gTe = GraphObject.merge(gTe, problem_based=problem_type[1], aggregation_mode=aggregation_mode)
+gTr = utils.getbatches(gTr, batch_size=batch_size, problem_based=problem_based, aggregation_mode=aggregation_mode)
+gVa = GraphObject.merge(gVa, problem_based=problem_based, aggregation_mode=aggregation_mode)
+gTe = GraphObject.merge(gTe, problem_based=problem_based, aggregation_mode=aggregation_mode)
 gGen = gTr[0].copy()
 
 # GRAPHS NORMALIZATION, based on training graphs
@@ -128,7 +128,7 @@ if normalize:
 # NETS - STATE
 input_net_st, layers_net_st = zip(*[get_inout_dims(net_name='state', dim_node_label=gGen.DIM_NODE_LABEL,
                                                    dim_arc_label=gGen.DIM_ARC_LABEL, dim_target=gGen.DIM_TARGET,
-                                                   problem=problem_type[1:], dim_state=dim_state,
+                                                   problem_based=problem_based, dim_state=dim_state,
                                                    hidden_units=hidden_units_net_state,
                                                    layer=i, get_state=get_state, get_output=get_output) for i in range(layers)])
 nets_St = [MLP(input_dim=i, layers=j,
@@ -143,7 +143,7 @@ nets_St = [MLP(input_dim=i, layers=j,
 # NETS - OUTPUT
 input_net_out, layers_net_out = zip(*[get_inout_dims(net_name='output', dim_node_label=gGen.DIM_NODE_LABEL,
                                                      dim_arc_label=gGen.DIM_ARC_LABEL, dim_target=gGen.DIM_TARGET,
-                                                     problem=problem_type[1:], dim_state=dim_state,
+                                                     problem_based=problem_based, dim_state=dim_state,
                                                      hidden_units=hidden_units_net_output,
                                                      layer=i, get_state=get_state, get_output=get_output) for i in range(layers)])
 nets_Out = [MLP(input_dim=i, layers=j,
@@ -156,7 +156,7 @@ nets_Out = [MLP(input_dim=i, layers=j,
                 dropout_pos=dropout_pos_out) for i, j in zip(input_net_out, layers_net_out)]
 
 # GNNs
-gnntype = {'n1': GNNnodeBased, 'a1': GNNedgeBased, 'g1': GNNgraphBased}[problem_type[1:]]
+gnntype = {'n': GNNnodeBased, 'a': GNNedgeBased, 'g': GNNgraphBased}[problem_based]
 # noinspection PyTypeChecker
 gnns = [gnntype(net_state=st,
                 net_output=out,
@@ -166,7 +166,7 @@ gnns = [gnntype(net_state=st,
                 state_vect_dim=dim_state,
                 max_iteration=max_iter,
                 threshold=state_threshold,
-                addressed_problem=problem_type[0],
+                addressed_problem=addressed_problem,
                 extra_metrics=extra_metrics,
                 extra_metrics_arguments=metrics_args,
                 path_writer=f'{path_writer}/GNN{idx}') for idx, st, out in zip(range(layers), nets_St, nets_Out)]
@@ -181,7 +181,7 @@ lgnn = LGNN(gnns=gnns,
             optimizer=optimizer,
             loss_function=lossF,
             loss_arguments=lossArguments,
-            addressed_problem=problem_type[0],
+            addressed_problem=addressed_problem,
             extra_metrics=extra_metrics,
             extra_metrics_arguments=metrics_args,
             path_writer=f'{path_writer}LGNN',
