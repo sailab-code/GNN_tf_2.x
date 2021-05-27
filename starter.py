@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Optional, Union
 
 import tensorflow as tf
@@ -7,9 +8,11 @@ from numpy import random
 
 from GNN import GNN_metrics as mt, GNN_utils as utils
 from GNN.GNN import GNNnodeBased, GNNedgeBased, GNNgraphBased
-from GNN.LGNN.LGNN import LGNN
+from GNN.LGNN import LGNN
 from GNN.MLP import MLP, get_inout_dims
 from GNN.graph_class import GraphObject
+
+
 
 #######################################################################################################################
 # SCRIPT OPTIONS - modify the parameters to adapt the execution to the problem under consideration ####################
@@ -17,7 +20,7 @@ from GNN.graph_class import GraphObject
 
 # MUTAG option - if True, gnn/lgnn is trained on a real-world dataset MUTAG
 # problem is set automatically to graph classification -> addressed_problem='c', problem_based='g'
-use_MUTAG: bool = False
+use_MUTAG: bool = True
 
 # GENERIC GRAPH PARAMETERS. See utils.randomGraph for details
 # Node and edge labels are initialized randomly. Target clusters are given by sklearn.
@@ -49,21 +52,21 @@ norm_arcs_range     : Optional[tuple[Union[int, float], Union[int, float]]] = No
 activations_net_state   : str = 'selu'
 kernel_init_net_state   : str = 'lecun_normal'
 bias_init_net_state     : str = 'lecun_normal'
-kernel_reg_net_state    : str = 'l1'
-bias_reg_net_state      : str = 'l1'
+kernel_reg_net_state    : str = None
+bias_reg_net_state      : str = None
 dropout_rate_st         : float = 0.1
 dropout_pos_st          : Union[list[int], int] = 0
-hidden_units_net_state  : Optional[Union[list[int], int]] = [150, 150]
+hidden_units_net_state  : Optional[Union[list[int], int]] = None
 
 ### NET OUTPUT PARAMETERS
 activations_net_output  : str = 'softmax'
 kernel_init_net_output  : str = 'glorot_normal'
 bias_init_net_output    : str = 'glorot_normal'
-kernel_reg_net_output   : str = 'l1'
-bias_reg_net_output     : str = 'l1'
+kernel_reg_net_output   : str = None
+bias_reg_net_output     : str = None
 dropout_rate_out        : float = 0.1
 dropout_pos_out         : Union[list[int], int] = 0
-hidden_units_net_output : Optional[Union[list[int], int]] = [150]
+hidden_units_net_output : Optional[Union[list[int], int]] = None
 
 # GNN PARAMETERS
 dim_state       : int = 0
@@ -72,7 +75,7 @@ state_threshold : float = 0.01
 
 # LGNN PARAMETERS
 layers          : int = 5
-get_state       : bool = True
+get_state       : bool = False#True
 get_output      : bool = True
 path_writer     : str = 'writer/'
 optimizer       : tf.keras.optimizers = tf.optimizers.Adam(learning_rate=0.001)
@@ -81,6 +84,8 @@ lossArguments   : Optional[dict[str, callable]] = {'from_logits': False}
 extra_metrics   : Optional[dict[str, callable]] = {i: mt.Metrics[i] for i in
                                                    ['Acc', 'Bacc', 'Tpr', 'Tnr', 'Fpr', 'Fnr', 'Ck', 'Js', 'Prec', 'Rec', 'Fs']}
 metrics_args    : Optional[dict[str, dict[str, any]]] = {i: {'average': 'weighted', 'zero_division': 0} for i in ['Fs', 'Prec', 'Rec', 'Js']}
+
+
 
 #######################################################################################################################
 # SCRIPT ##############################################################################################################
@@ -91,7 +96,8 @@ if use_MUTAG:
     # from MUTAG
     addressed_problem = 'c'
     problem_based = 'g'
-    from load_MUTAG import graphs
+    graphs = [GraphObject.load(f'MUTAG/{i}', 'g', aggregation_mode) for i in os.listdir('MUTAG')[:1000]]
+
 else:
     # random graphs
     graphs = [utils.randomGraph(nodes_number=int(random.choice(range(min_nodes_number, max_nodes_number))),
