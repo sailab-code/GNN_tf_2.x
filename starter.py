@@ -96,7 +96,7 @@ if use_MUTAG:
     # from MUTAG
     addressed_problem = 'c'
     problem_based = 'g'
-    graphs = [GraphObject.load(f'MUTAG/{i}', 'g', aggregation_mode) for i in os.listdir('MUTAG')[:1000]]
+    from load_MUTAG import graphs
 
 else:
     # random graphs
