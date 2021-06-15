@@ -17,9 +17,10 @@ class GraphObject:
                  problem_based: str = 'n',
                  set_mask=None,
                  output_mask=None,
+                 sample_weights=1,
                  NodeGraph=None,
                  ArcNode=None,
-                 aggregation_mode: str = "average"):
+                 aggregation_mode: str = 'average'):
         """ CONSTRUCTOR METHOD
 
         :param arcs: Ordered Arcs Matrix where arcs[i] = [ID Node From | ID NodeTo | Arc Label].
@@ -28,6 +29,9 @@ class GraphObject:
         :param problem_based: (str) define the problem on which graph is used: 'a' arcs-based, 'g' graph-based, 'n' node-based.
         :param set_mask: Array of {0,1} to define arcs/nodes belonging to a set, when dataset == single GraphObject.
         :param output_mask: Array of {0,1} to define the sub-set of arcs/nodes whose target is known.
+        :param sample_weights: target sample weight for loss computation. It can be int, float or numpy.array of ints or floats
+            > If int, all targets are weighted as sample_weights * ones.
+            > If numpy.array, len(sample_weights) and targets.shape[0] must agree.
         :param NodeGraph: Matrix (nodes.shape[0],{Num graphs or 1}) used only when problem_based=='g'.
         :param ArcNode: Matrix of shape (num_of_arcs, num_of_nodes) s.t. A[i,j]=value if arc[i,2]==node[j].
         :param aggregation_mode: (str) It defines the aggregation mode for the incoming message of a node using ArcNode and Adjacency:
@@ -39,6 +43,7 @@ class GraphObject:
         self.arcs = arcs.astype('float32')
         self.nodes = nodes.astype('float32')
         self.targets = targets.astype('float32')
+        self.sample_weights = sample_weights * np.ones(self.targets.shape[0])
 
         # store dimensions
         self.DIM_NODE_LABEL = nodes.shape[1]
@@ -76,7 +81,8 @@ class GraphObject:
         :return: a Deep Copy of the GraphObject instance.
         """
         return GraphObject(arcs=self.getArcs(), nodes=self.getNodes(), targets=self.getTargets(), set_mask=self.getSetMask(),
-                           output_mask=self.getOutputMask(), NodeGraph=self.getNodeGraph(), aggregation_mode=self.aggregation_mode)
+                           output_mask=self.getOutputMask(), sample_weights=self.getSampleWeights(), NodeGraph=self.getNodeGraph(),
+                           aggregation_mode=self.aggregation_mode)
 
     # -----------------------------------------------------------------------------------------------------------------
     def buildAdiacency(self):
@@ -101,12 +107,12 @@ class GraphObject:
         values_vector = np.ones(len(col))
 
         # average node aggregation - incoming message as average of neighbors states and labels
-        if self.aggregation_mode == "average":
+        if self.aggregation_mode == 'average':
             val, col_index, destination_node_counts = np.unique(col, return_inverse=True, return_counts=True)
             values_vector = values_vector / destination_node_counts[col_index]
 
         # normalized node aggregation - incoming message as sum of neighbors states and labels divided by the number of nodes in the graph
-        if self.aggregation_mode == "normalized":
+        if self.aggregation_mode == 'normalized':
             values_vector = values_vector * float(1 / len(col))
 
         # isolated nodes correction: if nodes[i] is isolated, then ArcNode[:,i]=0, to maintain nodes ordering
@@ -176,6 +182,9 @@ class GraphObject:
     def getNodeGraph(self):
         return None if self.NodeGraph is None else self.NodeGraph.copy()
 
+    def getSampleWeights(self):
+        return self.sample_weights.copy()
+
     ## CLASS METHODs ##################################################################################################
     @classmethod
     def save_graph(self, graph_folder_path: str, g):
@@ -192,11 +201,12 @@ class GraphObject:
         os.makedirs(graph_folder_path)
 
         # save everything
-        np.save(graph_folder_path + "arcs.npy", g.arcs)
-        np.save(graph_folder_path + "nodes.npy", g.nodes)
-        np.save(graph_folder_path + "targets.npy", g.targets)
+        np.save(graph_folder_path + 'arcs.npy', g.arcs)
+        np.save(graph_folder_path + 'nodes.npy', g.nodes)
+        np.save(graph_folder_path + 'targets.npy', g.targets)
         if not all(g.set_mask): np.save(graph_folder_path + 'set_mask.npy', g.set_mask)
-        if not all(g.output_mask): np.save(graph_folder_path + "output_mask.npy", g.output_mask)
+        if not all(g.output_mask): np.save(graph_folder_path + 'output_mask.npy', g.output_mask)
+        if np.any(g.sample_weights != 1): np.save(graph_folder_path + 'sample_weights.npy', g.sample_weights)
         if g.NodeGraph is not None and g.targets.shape[0] > 1: np.save(graph_folder_path + 'NodeGraph.npy', g.NodeGraph)
 
     # -----------------------------------------------------------------------------------------------------------------
@@ -216,11 +226,12 @@ class GraphObject:
         os.makedirs(graph_folder_path)
 
         # save everything
-        np.savetxt(graph_folder_path + "arcs.txt", g.arcs, fmt=format)
-        np.savetxt(graph_folder_path + "nodes.txt", g.nodes, fmt=format)
-        np.savetxt(graph_folder_path + "targets.txt", g.targets, fmt=format)
+        np.savetxt(graph_folder_path + 'arcs.txt', g.arcs, fmt=format)
+        np.savetxt(graph_folder_path + 'nodes.txt', g.nodes, fmt=format)
+        np.savetxt(graph_folder_path + 'targets.txt', g.targets, fmt=format)
         if not all(g.set_mask): np.savetxt(graph_folder_path + 'set_mask.txt', g.set_mask, fmt=format)
-        if not all(g.output_mask): np.savetxt(graph_folder_path + "output_mask.txt", g.output_mask, fmt=format)
+        if not all(g.output_mask): np.savetxt(graph_folder_path + 'output_mask.txt', g.output_mask, fmt=format)
+        if np.any(g.sample_weights != 1): np.savetxt(graph_folder_path + 'sample_weights.txt', g.sample_weights, fmt=format)
         if g.NodeGraph is not None and g.targets.shape[0] > 1: np.savetxt(graph_folder_path + 'NodeGraph.txt', g.NodeGraph, fmt=format)
 
     # -----------------------------------------------------------------------------------------------------------------
@@ -281,9 +292,11 @@ class GraphObject:
         if not (type(glist) == list and all(isinstance(x, (GraphObject, str)) for x in glist)):
             raise TypeError('type of param <glist> must be list of str \'path-like\' or GraphObjects')
 
-        nodes, nodes_lens, arcs, targets, set_mask, output_mask, nodegraph_list = zip(*[(i.getNodes(), i.nodes.shape[0], i.getArcs(),
-                                                                                         i.getTargets(), i.getSetMask(), i.getOutputMask(),
-                                                                                         i.getNodeGraph()) for i in glist])
+        nodes, nodes_lens, arcs, targets, set_mask, output_mask, sample_weights, nodegraph_list = zip(*[(i.getNodes(), i.nodes.shape[0],
+                                                                                                         i.getArcs(), i.getTargets(),
+                                                                                                         i.getSetMask(), i.getOutputMask(),
+                                                                                                         i.getSampleWeights(), i.getNodeGraph())
+                                                                                                        for i in glist])
 
         # get single matrices for new graph
         for i, elem in enumerate(arcs): elem[:, :2] += sum(nodes_lens[:i])
@@ -292,6 +305,7 @@ class GraphObject:
         targets = np.concatenate(targets, axis=0)
         set_mask = np.concatenate(set_mask, axis=0)
         output_mask = np.concatenate(output_mask, axis=0)
+        sample_weights = np.concatenate(sample_weights, axis=0)
 
         nodegraph = None
         if problem_based == 'g':
@@ -299,22 +313,24 @@ class GraphObject:
             nodegraph = block_diag(*nodegraph_list)
 
         # resulting GraphObject
-        return self(arcs, nodes, targets, problem_based, set_mask, output_mask, nodegraph, aggregation_mode=aggregation_mode)
+        return self(arcs=arcs, nodes=nodes, targets=targets, problem_based=problem_based, set_mask=set_mask, output_mask=output_mask,
+                    sample_weights=sample_weights, NodeGraph=nodegraph, aggregation_mode=aggregation_mode)
 
     @classmethod
     def fromGraphTensor(self, g, problem_based: str):
         nodegraph = None
         if problem_based == 'g': nodegraph = g.NodeGraph.numpy()
         return self(arcs=g.arcs.numpy(), nodes=g.nodes.numpy(), targets=g.targets.numpy(),
-                    set_mask=g.set_mask.numpy(), output_mask=g.output_mask.numpy(),
+                    set_mask=g.set_mask.numpy(), output_mask=g.output_mask.numpy(), sample_weights=g.sample_weights.numpy(),
                     NodeGraph=nodegraph, aggregation_mode=g.aggregation_mode, problem_based=problem_based)
 
 
 class GraphTensor:
-    def __init__(self, nodes, arcs, targets, set_mask, output_mask, Adjacency, ArcNode, NodeGraph, aggregation_mode):
+    def __init__(self, nodes, arcs, targets, set_mask, output_mask, sample_weights, Adjacency, ArcNode, NodeGraph, aggregation_mode):
         self.nodes = tf.constant(nodes, dtype='float32')
         self.arcs = tf.constant(arcs, dtype='float32')
         self.targets = tf.constant(targets, dtype='float32')
+        self.sample_weights = tf.constant(sample_weights, dtype='float32')
         self.set_mask = tf.constant(set_mask, dtype=bool)
         self.output_mask = tf.constant(output_mask, dtype=bool)
         self.aggregation_mode = aggregation_mode
@@ -327,7 +343,8 @@ class GraphTensor:
     # -----------------------------------------------------------------------------------------------------------------
     def copy(self):
         return GraphTensor(nodes=self.nodes, arcs=self.arcs, targets=self.targets, set_mask=self.set_mask, output_mask=self.output_mask,
-                           Adjacency=self.Adjacency, ArcNode=self.ArcNode, NodeGraph=self.NodeGraph, aggregation_mode=self.aggregation_mode)
+                           sample_weights=self.sample_weights, Adjacency=self.Adjacency, ArcNode=self.ArcNode, NodeGraph=self.NodeGraph,
+                           aggregation_mode=self.aggregation_mode)
 
     # -----------------------------------------------------------------------------------------------------------------
     @classmethod
@@ -335,9 +352,9 @@ class GraphTensor:
         """ Create GraphTensor from GraphObject. Note that Adjacency and ArcNode are transposed so that GraphTensor.ArcNode and
         GraphTensor.Adjacency are ready for sparse_dense_matmul in Loop operations.
         """
-        return self(nodes=g.nodes, arcs=g.arcs, targets=g.targets, set_mask=g.set_mask, output_mask=g.output_mask, NodeGraph=g.NodeGraph,
-                    Adjacency=self.COO2SparseTransposedTensor(g.Adjacency), ArcNode=self.COO2SparseTransposedTensor(g.ArcNode),
-                    aggregation_mode=g.aggregation_mode)
+        return self(nodes=g.nodes, arcs=g.arcs, targets=g.targets, set_mask=g.set_mask, output_mask=g.output_mask,
+                    sample_weights=g.sample_weights, NodeGraph=g.NodeGraph, Adjacency=self.COO2SparseTransposedTensor(g.Adjacency),
+                    ArcNode=self.COO2SparseTransposedTensor(g.ArcNode), aggregation_mode=g.aggregation_mode)
 
     # -----------------------------------------------------------------------------------------------------------------
     @staticmethod

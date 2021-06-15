@@ -177,12 +177,10 @@ class GNNnodeBased(BaseClass):
         return self.Loop(g, training=False)[-1]
 
     ## EVALUATE METHODS ###############################################################################################
-    def evaluate_single_graph(self, g: Union[GraphObject, GraphTensor], class_weights: Union[float, list[float]], training: bool) -> tuple:
+    def evaluate_single_graph(self, g: Union[GraphObject, GraphTensor], training: bool) -> tuple:
         """ Evaluate single GraphObject/GraphTensor element g in test mode (training == False)
 
         :param g: (GraphObject/GraphTensor) single GraphObject/GraphTensor element
-        :param class_weights: in classification task, it can be an int, float, list of ints or floats, compatible with 1hot target matrix
-                              > In future version it will be modified.
         :param training: (bool) set internal models behavior, s.t. they work in training or testing mode
         :return: (tuple) convergence iteration (int), loss value (matrix), target and output  (matrices) of the model
         """
@@ -190,14 +188,14 @@ class GNNnodeBased(BaseClass):
         if isinstance(g, GraphObject): g = GraphTensor.fromGraphObject(g)
 
         # get targets
-        targs = self.get_graph_target(g)
+        targs = self.get_filtered_tensor(g, g.targets)
+        loss_weights = self.get_filtered_tensor(g, g.sample_weights)
 
         # graph processing
         it, _, out = self.Loop(g, training=training)
 
         # if class_metrics != 1, else it does not modify loss values
-        loss_weight = tf.reduce_sum(class_weights * targs, axis=1)
-        loss = self.loss_function(targs, out, **self.loss_args) * loss_weight
+        loss = self.loss_function(targs, out, **self.loss_args) * loss_weights
         return it, tf.reduce_sum(loss), targs, out
 
     ## LOOP METHODS ###################################################################################################
@@ -312,9 +310,9 @@ class GNNgraphBased(GNNnodeBased):
 
     # -----------------------------------------------------------------------------------------------------------------
     @staticmethod
-    def get_graph_target(g: Union[GraphObject, GraphTensor]):
-        """ Get targets for graph based problems -> nodes states are not filtered by set_mask and output_mask """
-        return tf.constant(g.targets, dtype='float32')
+    def get_filtered_tensor(g: GraphTensor, inp: tf.Tensor):
+        """ Get inp [targets or sample_weights] for graph based problems -> nodes states are not filtered by set_mask and output_mask """
+        return tf.constant(inp, dtype='float32')
 
     # -----------------------------------------------------------------------------------------------------------------
     def Loop(self, g: Union[GraphObject, GraphTensor], *, training: bool = False) -> tuple[int, tf.Tensor, tf.Tensor]:

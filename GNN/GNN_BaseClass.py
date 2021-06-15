@@ -157,24 +157,22 @@ class BaseClass(ABC):
             txt.write(df.to_string(index=False))
 
     ## EVALUATE METHODs ###############################################################################################
-    def evaluate_single_graph(self, g: Union[GraphObject, GraphTensor], class_weights: Union[float, list[float]], training: bool) -> tuple:
+    def evaluate_single_graph(self, g: Union[GraphObject, GraphTensor], training: bool) -> tuple:
         """ Evaluate method for evaluating one GraphObject/GraphTensor element g. Returns iteration, loss, targets and outputs """
         pass
 
     # -----------------------------------------------------------------------------------------------------------------
-    def evaluate(self, g: Union[GraphObject, GraphTensor, list[GraphObject, GraphTensor]],
-                 class_weights: Union[int, float, list[float]] = 1) -> tuple:
+    def evaluate(self, g: Union[GraphObject, GraphTensor, list[GraphObject, GraphTensor]]) -> tuple:
         """ Return metrics in self.extra_metrics + Iter & Loss for a GraphObject/GraphTensor or a list of them in test mode
 
         :param g: element/list of GraphObject/GraphTensor to be evaluated.
-        :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss.
         :return: metrics, target_labels, prediction_labels, targets_raw and prediction_raw.
         """
         # check type - new g is a list of GraphTensors
         g = self.checktype(g)
 
         # process input data
-        iters, losses, targets, outs = zip(*[self.evaluate_single_graph(i, class_weights, training=False) for i in g])
+        iters, losses, targets, outs = zip(*[self.evaluate_single_graph(i, training=False) for i in g])
 
         # concatenate all the values from every graph and take class' labels or values
         # loss = tf.concat(losses, axis=0)
@@ -193,7 +191,7 @@ class BaseClass(ABC):
     ## TRAINING METHOD ################################################################################################
     def train(self, gTr: Union[GraphObject, GraphTensor, list[GraphObject, GraphTensor]], epochs: int,
               gVa: Union[GraphObject, GraphTensor, list[GraphObject, GraphTensor]] = None, update_freq: int = 10, max_fails: int = 10,
-              observed_metric='Loss', policy='min', class_weights: Union[int, list[float]] = 1,
+              observed_metric='Loss', policy='min',
               *, mean: bool = True, verbose: int = 3) -> None:
         """ TRAINING PROCEDURE
 
@@ -204,8 +202,6 @@ class BaseClass(ABC):
         :param max_fails: (int) specifies the max number of failures in gVa improvement loss evaluation before early sopping. Default 10.
         :param observed_metric: (str) key of the metric to be observed for early sopping
         :param policy: (str) possible choices: ['min','max'], to minimize/maximize :param observed_metric: during learning procedure
-        :param class_weights: (list) [w0, w1,...,wc] in classification task when targets are 1-hot, specify the weight for weighted loss.
-                                     Default 1. >> removed in future version
         :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, otherwise as the mean. Default True.
         :param verbose: (int) 0: silent mode; 1: print history; 2: print epochs/batches, 3: history + epochs/batches. Default 3.
         """
@@ -235,7 +231,7 @@ class BaseClass(ABC):
         def training_step(gTr: GraphTensor, mean: bool) -> None:
             """ compute the gradients and apply them """
             with tf.GradientTape() as tape:
-                iter, loss, *_ = self.evaluate_single_graph(gTr, class_weights, training=True)
+                iter, loss, *_ = self.evaluate_single_graph(gTr, training=True)
                 loss = loss + regularizer_terms()
             wS, wO = self.trainable_variables()
             dwbS, dwbO = tape.gradient(loss, [wS, wO])
@@ -292,7 +288,7 @@ class BaseClass(ABC):
 
             # TRAINING EVALUATION STEP
             if e % update_freq == 0:
-                metricsTr, *_ = self.evaluate(gTr, class_weights)
+                metricsTr, *_ = self.evaluate(gTr)
                 # History Update
                 self.history['Epoch'].append(e)
                 update_history('Tr', metricsTr)
@@ -304,7 +300,7 @@ class BaseClass(ABC):
 
             # VALIDATION STEP
             if (e % update_freq == 0) and gVa:
-                metricsVa, *_ = self.evaluate(gVa, class_weights)
+                metricsVa, *_ = self.evaluate(gVa)
                 valid_new_metric_value = metricsVa[observed_metric]
                 # Validation check
                 # if valid_new_metric_value < valid_best_metric:
@@ -339,13 +335,11 @@ class BaseClass(ABC):
             self.write_net_weights(netO_writer, namespace, 'N2', j, e)
 
     ## TEST METHOD ####################################################################################################
-    def test(self, gTe: Union[GraphObject, GraphTensor, list[GraphObject, GraphTensor]], *, class_weights=1, rocdir: str = '',
+    def test(self, gTe: Union[GraphObject, GraphTensor, list[GraphObject, GraphTensor]], *, rocdir: str = '',
              micro_and_macro: bool = False, prisofsdir: str = '', pos_label=0) -> dict[str, list[float]]:
         """ TEST PROCEDURE
 
         :param gTe: element/list of GraphObjects for testing procedure.
-        :param class_weights: (list) [w0, w1,...,wc] in classification task when targets are 1-hot, specify the weight for weighted loss. Default 1.
-                                     > removed in future version.
         :param acc_classes: (bool) if True print accuracy for each class, in classification problems.
         :param rocdir: (str) path for saving ROC images file.
         :param micro_and_macro: (bool) for computing micro and macro average quantities in roc curve.
@@ -357,7 +351,7 @@ class BaseClass(ABC):
         gTe = self.checktype(gTe)
 
         # Evaluate all the metrics in gnn.extra_metrics + Iter and Loss
-        metricsTe, y_true, y_pred, targets, y_score = self.evaluate(gTe, class_weights=class_weights)
+        metricsTe, y_true, y_pred, targets, y_score = self.evaluate(gTe)
 
         # ROC e PR curves
         if rocdir: mt.ROC(targets, y_score, rocdir, micro_and_macro, pos_label=pos_label)
@@ -367,8 +361,7 @@ class BaseClass(ABC):
     ## K-FOLD CROSS VALIDATION METHOD #################################################################################
     def LKO(self, batches: tuple[Union[list[GraphTensor], list[list[GraphTensor]]], list[GraphTensor], Optional[list[GraphTensor]]],
             epochs: int = 500, training_mode=None, update_freq: int = 10, max_fails: int = 10,
-            observed_metric: str = 'Loss', policy='min', class_weights: Union[int, float, list[Union[float, int]]] = 1,
-            mean: bool = True, verbose: int = 3) -> dict[str, list[float]]:
+            observed_metric: str = 'Loss', policy='min', mean: bool = True, verbose: int = 3) -> dict[str, list[float]]:
         """ LEAVE K OUT CROSS VALIDATION PROCEDURE
 
         :param batches: (tuple) s.t. batches[0]:=training, [1]:=test, [2]:=validation. It is the output of prepare_LKO_data function
@@ -378,7 +371,6 @@ class BaseClass(ABC):
         :param max_fails: (int) specifies the max number of failures before early sopping.
         :param observed_metric: (str) key of the metric to be observed for early sopping
         :param policy: (str) possible choices: ['min','max'], to minimize/maximize :param observed_metric: during learning procedure
-        :param class_weights: (list) [w0, w1,...,wc] for classification task, specify the weight for weighted loss.
         :param mean: (bool) if False the applied gradients are computed as the sum of every iteration, else as the mean.
         :param verbose: (int) 0: silent mode; 1: print history; 2: print epochs/batches, 3: history + epochs/batches. Default 3.
         :return: a dict containing all the considered metrics in <gnn>.history.
@@ -398,9 +390,9 @@ class BaseClass(ABC):
             # model creation, learning and test
             print(f'\nBATCH K-OUT {i + 1}/{number_of_batches}')
             temp = self.copy(copy_weights=False, path_writer=f'{self.path_writer}{i}', namespace=f'Batch {i + 1}-{number_of_batches}')
-            temp.train(gTr, epochs, gVa, update_freq, max_fails, observed_metric, policy, class_weights, mean=mean, verbose=verbose,
+            temp.train(gTr, epochs, gVa, update_freq, max_fails, observed_metric, policy, mean=mean, verbose=verbose,
                        **kwargs)
-            res = temp.test(gTe, class_weights=class_weights)
+            res = temp.test(gTe)
 
             # evaluate metrics
             for m in res: metrics[m].append(res[m])
@@ -411,11 +403,10 @@ class BaseClass(ABC):
 
     ## STATIC METHODs #################################################################################################
     @staticmethod
-    def get_graph_target(g: Union[GraphObject, GraphTensor]):
-        """ Get targets for node-based or edge-based problems: nodes states are filtered by set_mask and output_mask """
-        targs = tf.constant(g.targets, dtype='float32')
+    def get_filtered_tensor(g: GraphTensor, inp: tf.Tensor):
+        """ Get inp [targets or sample_weights] for graph based problems -> nodes states are not filtered by set_mask and output_mask """
         mask = tf.boolean_mask(g.set_mask, g.output_mask)
-        return tf.boolean_mask(targs, mask)
+        return tf.boolean_mask(inp, mask)
 
     # -----------------------------------------------------------------------------------------------------------------
     @staticmethod

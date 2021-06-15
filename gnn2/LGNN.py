@@ -198,12 +198,10 @@ class LGNN(BaseClass):
         return out[idx].numpy() if isinstance(idx, int) else [out[i].numpy() for i in idx]
 
     ## EVALUATE METHODS ###############################################################################################
-    def evaluate_single_graph(self, g: Union[GraphObject, GraphTensor], class_weights: Union[float, list[float]], training: bool) -> tuple:
+    def evaluate_single_graph(self, g: Union[GraphObject, GraphTensor], training: bool) -> tuple:
         """ Evaluate single GraphObject/GraphTensor element g in test mode (training == False)
 
         :param g: (GraphObject/GraphTensor) single GraphObject/GraphTensor element
-        :param class_weights: in classification task, it can be an int, float, list of ints or floats, compatible with 1hot target matrix
-                              > In future version it will be modified.
         :param training: (bool) set internal models behavior, s.t. they work in training or testing mode
         :return: (tuple) convergence iteration (int), loss value (matrix), target and output (matrices) of the model
         """
@@ -211,17 +209,17 @@ class LGNN(BaseClass):
         if isinstance(g, GraphObject): g = GraphTensor.fromGraphObject(g)
 
         # get targets
-        targs = self.GNNS_TYPE.get_graph_target(g)
+        targs = self.GNNS_TYPE.get_filtered_tensor(g, g.targets)
+        loss_weights = self.GNNS_TYPE.get_filtered_tensor(g, g.sample_weights)
 
         # graph processing
         it, _, out = self.Loop(g, training=training)
 
         # if class_metrics != 1, else it does not modify loss values
-        loss_weight = tf.reduce_sum(class_weights * targs, axis=1)
         if training and self.training_mode == 'residual':
-            loss = self.loss_function(targs, tf.reduce_mean(out, axis=0), **self.loss_args) * loss_weight
+            loss = self.loss_function(targs, tf.reduce_mean(out, axis=0), **self.loss_args) * loss_weights
         else:
-            loss = tf.reduce_mean([self.loss_function(targs, o, **self.loss_args) * loss_weight for o in out], axis=0)
+            loss = tf.reduce_mean([self.loss_function(targs, o, **self.loss_args) * loss_weights for o in out], axis=0)
 
         return it, tf.reduce_sum(loss), targs, out[-1]
 
@@ -294,7 +292,7 @@ class LGNN(BaseClass):
     ## TRAINING METHOD ################################################################################################
     def train(self, gTr: Union[GraphObject, GraphTensor, list[GraphObject, GraphTensor]], epochs: int,
               gVa: Union[GraphObject, GraphTensor, list[GraphObject, GraphTensor]] = None, update_freq: int = 10, max_fails: int = 10,
-              observed_metric: str = 'Loss', policy='min', class_weights: Union[int, list[float]] = 1,
+              observed_metric: str = 'Loss', policy='min',
               *, mean: bool = True, training_mode: str = 'parallel', verbose: int = 3) -> None:
         """ LEARNING PROCEDURE
 
@@ -303,8 +301,6 @@ class LGNN(BaseClass):
         :param gVa: element/list of GraphsObjects/GraphTensors for early stopping. Default None, no early stopping performed.
         :param update_freq: (int) how many epochs must be completed before evaluating gVa and gTr and/or print learning progress. Default 10.
         :param max_fails: (int) specifies the max number of failures in gVa improvement loss evaluation before early sopping. Default 10.
-        :param class_weights: (list) [w0, w1,...,wc] in classification task when targets are 1-hot, specify the weight for weighted loss.
-                                     Default 1. >> removed in future version
         :param training_mode: (str) in ['serial','parallel','residual']. Default set to 'parallel'
             > 'serial' - GNNs are trained separately, from layer 0 to layer N
             > 'parallel' - GNNs are trained all together, from loss = mean(Loss_Function( t, Oi)) where Oi is the output of GNNi
@@ -334,7 +330,7 @@ class LGNN(BaseClass):
                 if verbose in [1, 3]: print(f'\n\n------------------- GNN{idx} -------------------\n')
 
                 # train the idx-th gnn
-                gnn.train(gTr1, epochs, gVa1, update_freq, max_fails, observed_metric, policy, class_weights, mean=mean, verbose=verbose)
+                gnn.train(gTr1, epochs, gVa1, update_freq, max_fails, observed_metric, policy, mean=mean, verbose=verbose)
 
                 # extrapolate state and output to update labels
                 _, sTr, oTr = zip(*[super(GNNgraphBased, gnn).Loop(i) if isinstance(gnn, GNNgraphBased) else gnn.Loop(i) for i in gTr1])
@@ -345,4 +341,4 @@ class LGNN(BaseClass):
 
         # RESIDUAL OR PARALLEL TRAINING
         else:
-            super().train(gTr, epochs, gVa, update_freq, max_fails, observed_metric, policy, class_weights, mean=mean, verbose=verbose)
+            super().train(gTr, epochs, gVa, update_freq, max_fails, observed_metric, policy, mean=mean, verbose=verbose)
