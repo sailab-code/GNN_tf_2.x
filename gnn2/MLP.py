@@ -3,14 +3,14 @@ from __future__ import annotations
 from typing import Union, Optional
 
 from numpy import array, arange
-from tensorflow.keras.layers import Dense, Dropout, AlphaDropout
+from tensorflow.keras.layers import Dense, Dropout, AlphaDropout, BatchNormalization
 from tensorflow.keras.models import Sequential
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-def MLP(input_dim: int, layers: list[int], activations, kernel_initializer, bias_initializer, kernel_regularizer=None,
-        bias_regularizer=None, dropout_rate: Union[list[float], float, None] = None,
-        dropout_pos: Optional[Union[list[int], int]] = None, alphadropout: bool = False):
+def MLP(input_dim: int, layers: list[int], activations, kernel_initializer, bias_initializer,
+        kernel_regularizer=None, bias_regularizer=None, dropout_rate: Union[list[float], float, None] = None,
+        dropout_pos: Optional[Union[list[int], int]] = None, alphadropout: bool = False, batch_normalization: bool = True):
     """ Quick building function for MLP model. All lists must have the same length
 
     :param input_dim: (int) specify the input dimension for the model
@@ -23,6 +23,7 @@ def MLP(input_dim: int, layers: list[int], activations, kernel_initializer, bias
     :param dropout_rate: (float) s.t. 0 <= dropout_percs <= 1 for dropout rate
     :param dropout_pos: int or list of int describing dropout layers position
     :param alphadropout: (bool) for dropout type, if any
+    :param batch_normalization: (bool) add a BatchNormalization layer after the last dense layer
     :return: Sequential (MLP) model
     """
     # check type
@@ -59,6 +60,7 @@ def MLP(input_dim: int, layers: list[int], activations, kernel_initializer, bias
     # return MLP model
     dropout = AlphaDropout if alphadropout else Dropout
     mlp_layers = [Dense(**i) if 'units' in i else dropout(**i) for i in params]
+    if batch_normalization: mlp_layers += [BatchNormalization()]
     return Sequential(mlp_layers)
 
 
