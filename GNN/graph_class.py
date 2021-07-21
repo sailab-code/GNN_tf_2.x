@@ -39,10 +39,12 @@ class GraphObject:
             > 'normalized': elem(matrix)={0-1} -> matmul(m,A) gives the normalized message wrt the total number of g.nodes;
             > 'sum': elem(matrix)={0,1} -> matmul(m,A) gives the total sum of incoming messages. In this case Adjacency
         """
+        self.dtype = tf.keras.backend.floatx()
+
         # store arcs, nodes, targets
-        self.arcs = arcs.astype('float32')
-        self.nodes = nodes.astype('float32')
-        self.targets = targets.astype('float32')
+        self.arcs = arcs.astype(self.dtype)
+        self.nodes = nodes.astype(self.dtype)
+        self.targets = targets.astype(self.dtype)
         self.sample_weights = sample_weights * np.ones(self.targets.shape[0])
 
         # store dimensions
@@ -66,13 +68,13 @@ class GraphObject:
         self.aggregation_mode = aggregation_mode
 
         # build ArcNode matrix or acquire it from input
-        self.ArcNode = self.buildArcNode() if ArcNode is None else ArcNode.astype('float32')
+        self.ArcNode = self.buildArcNode() if ArcNode is None else ArcNode.astype(self.dtype)
 
         # build Adjancency Matrix. Note that it can be an Aggregated Version of the 'normal' Adjacency Matrix (with only 0 and 1)
         self.Adjacency = self.buildAdiacency()
 
         # build node_graph conversion matrix
-        self.NodeGraph = self.buildNodeGraph(problem_based) if NodeGraph is None else NodeGraph.astype('float32')
+        self.NodeGraph = self.buildNodeGraph(problem_based) if NodeGraph is None else NodeGraph.astype(self.dtype)
 
     # -----------------------------------------------------------------------------------------------------------------
     def copy(self):
@@ -88,9 +90,9 @@ class GraphObject:
     def buildAdiacency(self):
         """ Build 'Aggregated' Adjacency Matrix ADJ, s.t. ADJ[i,j]=value if edge (i,j) exists in graph edges set.
         value is set by self.aggregation_mode: 'sum':1, 'normalized':1/self.nodes.shape[0], 'average':1/number_of_neighbors """
-        values = self.getArcNode().data  # np.ones(self.arcs.shape[0], dtype='float32')
+        values = self.getArcNode().data
         indices = self.arcs[:, :2].astype(int)
-        return coo_matrix((values, (indices[:, 0], indices[:, 1])), shape=(self.nodes.shape[0], self.nodes.shape[0]), dtype='float32')
+        return coo_matrix((values, (indices[:, 0], indices[:, 1])), shape=(self.nodes.shape[0], self.nodes.shape[0]), dtype=self.dtype)
 
     # -----------------------------------------------------------------------------------------------------------------
     def buildArcNode(self):
@@ -106,17 +108,17 @@ class GraphObject:
         # sum node aggregation - incoming message as sum of neighbors states and labels
         values_vector = np.ones(len(col))
 
-        # average node aggregation - incoming message as average of neighbors states and labels
-        if self.aggregation_mode == 'average':
-            val, col_index, destination_node_counts = np.unique(col, return_inverse=True, return_counts=True)
-            values_vector = values_vector / destination_node_counts[col_index]
-
         # normalized node aggregation - incoming message as sum of neighbors states and labels divided by the number of nodes in the graph
         if self.aggregation_mode == 'normalized':
             values_vector = values_vector * float(1 / len(col))
 
+        # average node aggregation - incoming message as average of neighbors states and labels
+        elif self.aggregation_mode == 'average':
+            val, col_index, destination_node_counts = np.unique(col, return_inverse=True, return_counts=True)
+            values_vector = values_vector / destination_node_counts[col_index]
+
         # isolated nodes correction: if nodes[i] is isolated, then ArcNode[:,i]=0, to maintain nodes ordering
-        return coo_matrix((values_vector, (row, col)), shape=(self.arcs.shape[0], self.nodes.shape[0]), dtype='float32')
+        return coo_matrix((values_vector, (row, col)), shape=(self.arcs.shape[0], self.nodes.shape[0]), dtype=self.dtype)
 
     # -----------------------------------------------------------------------------------------------------------------
     def setAggregation(self, aggregation_mode: str):
@@ -327,15 +329,17 @@ class GraphObject:
 
 class GraphTensor:
     def __init__(self, nodes, arcs, targets, set_mask, output_mask, sample_weights, Adjacency, ArcNode, NodeGraph, aggregation_mode):
-        self.nodes = tf.constant(nodes, dtype='float32')
-        self.arcs = tf.constant(arcs, dtype='float32')
-        self.targets = tf.constant(targets, dtype='float32')
-        self.sample_weights = tf.constant(sample_weights, dtype='float32')
+        dtype = tf.keras.backend.floatx()
+
+        self.nodes = tf.constant(nodes, dtype=dtype)
+        self.arcs = tf.constant(arcs, dtype=dtype)
+        self.targets = tf.constant(targets, dtype=dtype)
+        self.sample_weights = tf.constant(sample_weights, dtype=dtype)
         self.set_mask = tf.constant(set_mask, dtype=bool)
         self.output_mask = tf.constant(output_mask, dtype=bool)
         self.aggregation_mode = aggregation_mode
         self.NodeGraph = None
-        if NodeGraph is not None: self.NodeGraph = tf.constant(NodeGraph, dtype='float32')
+        if NodeGraph is not None: self.NodeGraph = tf.constant(NodeGraph, dtype=dtype)
         # Adjacency and ArcNode in GraphTensor MUST BE already transposed!
         self.Adjacency = tf.sparse.SparseTensor.from_value(Adjacency)
         self.ArcNode = tf.sparse.SparseTensor.from_value(ArcNode)
@@ -364,5 +368,5 @@ class GraphTensor:
         indices = list(zip(coo_matrix.col, coo_matrix.row))
         sparse_tensor = tf.SparseTensor(indices, values=coo_matrix.data, dense_shape=[coo_matrix.shape[1], coo_matrix.shape[0]])
         sparse_tensor = tf.sparse.reorder(sparse_tensor)
-        sparse_tensor = tf.cast(sparse_tensor, dtype=tf.float32)
+        sparse_tensor = tf.cast(sparse_tensor, dtype=tf.keras.backend.floatx())
         return sparse_tensor
